@@ -14,6 +14,8 @@ interface User {
 const Index = () => {
   const [user, setUser] = useState<User | null>(null);
   const { toast } = useToast();
+  
+  console.log("Index component rendered, user:", user);
 
   // Credenciais padrão para demonstração
   const defaultCredentials = {

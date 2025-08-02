@@ -37,7 +37,7 @@ export function ChatIA() {
     setInputMessage("");
 
     try {
-      const response = await fetch('https://api.deepseek.com/chat/completions', {
+      const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
