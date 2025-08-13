@@ -1,3 +1,4 @@
+// src/components/StudentDashboard.tsx (Código Atualizado)
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,28 +16,63 @@ import {
   Clock,
   Star,
   LogOut,
-  User,
-  BarChart3
+  BarChart3,
+  DollarSign,
+  AlertTriangle,
+  CheckCircle,
+  TrendingUp,
+  TrendingDown,
+  Receipt,
+  CreditCard,
+  HelpCircle,
+  Settings,
+  GraduationCap,
+  Zap
 } from "lucide-react";
+
+// Import dos hooks compartilhados
+import { useStudentData } from "../hooks/useData";
+import { usePaymentData } from "../hooks/usePaymentData";
+import { StudentFinanceModal } from "./shared/StudentFinanceModal";
 
 interface StudentDashboardProps {
   onLogout: () => void;
 }
 
 export function StudentDashboard({ onLogout }: StudentDashboardProps) {
+  // Simular o estudante logado (ID 1 = João Silva)
+  const currentStudentId = 1;
+  
   const [currentUser] = useState({
+    id: currentStudentId,
     name: "João Silva",
-    email: "student@m007.com",
-    level: "Intermediate",
+    email: "joao.silva@email.com",
+    level: "Business English - A2",
     progress: 75
   });
 
+  // Hooks de dados compartilhados
+  const { getStudentById } = useStudentData();
+  const { getStudentReadOnlyInfo, updatePayment, recordPayment } = usePaymentData();
+
+  // Estados para modais
+  const [paymentModal, setPaymentModal] = useState(false);
+  const [selectedAction, setSelectedAction] = useState<string | null>(null);
+
+  // Dados do estudante atual
+  const studentData = getStudentById(currentStudentId);
+  const paymentInfo = getStudentReadOnlyInfo( // ✅ Usar método específico para estudantes
+    currentStudentId, 
+    currentUser.name, 
+    currentUser.level
+  );
+
   const [grades] = useState([
-    { subject: "Grammar", grade: 8.5, status: "approved" },
-    { subject: "Listening", grade: 9.0, status: "approved" },
-    { subject: "Speaking", grade: 7.8, status: "approved" },
-    { subject: "Writing", grade: 8.2, status: "approved" },
-    { subject: "Reading", grade: 9.2, status: "approved" }
+    { subject: "Grammar", grade: 8.5, status: "approved", period: "1º Bimestre", feedback: "Excelente domínio das estruturas básicas" },
+    { subject: "Listening", grade: 9.0, status: "approved", period: "1º Bimestre", feedback: "Compreensão auditiva muito boa" },
+    { subject: "Speaking", grade: 7.8, status: "approved", period: "1º Bimestre", feedback: "Precisa praticar mais a fluência" },
+    { subject: "Writing", grade: 8.2, status: "approved", period: "1º Bimestre", feedback: "Boa estruturação de textos" },
+    { subject: "Reading", grade: 9.2, status: "approved", period: "1º Bimestre", feedback: "Excelente compreensão textual" }
   ]);
 
   const [schedule] = useState([
@@ -53,11 +89,64 @@ export function StudentDashboard({ onLogout }: StudentDashboardProps) {
     { name: "Pronunciation Guide", type: "audio", size: "8.7 MB", downloads: 33 }
   ]);
 
-  const getGradeColor = (grade: number) => {
-    if (grade >= 9) return "bg-success";
-    if (grade >= 7) return "bg-warning";
-    return "bg-destructive";
+  // Formatação de moeda
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('pt-MZ', {
+      style: 'currency',
+      currency: 'MZN'
+    }).format(amount);
   };
+
+  // Cores para grades e status
+  const getGradeColor = (grade: number) => {
+    if (grade >= 9) return "text-green-600";
+    if (grade >= 7) return "text-yellow-600";
+    return "text-red-600";
+  };
+
+  const getPaymentStatusColor = () => {
+    if (paymentInfo.overduePayments.length > 0) return "text-red-600";
+    if (paymentInfo.currentBalance > 0) return "text-blue-600";
+    return "text-green-600";
+  };
+
+  const getPaymentStatusText = () => {
+    if (paymentInfo.overduePayments.length > 0) return "Em Atraso";
+    if (paymentInfo.currentBalance > 0) return "Com Crédito";
+    return "Em Dia";
+  };
+
+  // Ações rápidas - removidas as funcionalidades desnecessárias
+  const quickActions = [
+    { id: 'payment', label: 'Ver Situação Financeira', icon: DollarSign, color: 'text-green-600' },
+    { id: 'support', label: 'Falar com Suporte', icon: HelpCircle, color: 'text-purple-600' },
+    { id: 'profile', label: 'Atualizar Perfil', icon: Settings, color: 'text-gray-600' }
+  ];
+
+  const handleQuickAction = (actionId: string) => {
+    setSelectedAction(actionId);
+    
+    switch (actionId) {
+      case 'payment':
+        setPaymentModal(true);
+        break;
+      case 'support':
+        // Abrir WhatsApp ou sistema de suporte real
+        window.open('https://wa.me/258840000000', '_blank');
+        break;
+      case 'profile':
+        // Implementar funcionalidade de atualização de perfil
+        console.log('Abrindo configurações do perfil');
+        break;
+    }
+  };
+
+  // Handlers para pagamento
+  const handleRecordPayment = (amount: number, method: any, monthReference: string, description?: string) => {
+    recordPayment(currentStudentId, amount, monthReference, method, description);
+  };
+
+  const averageGrade = (grades.reduce((sum, g) => sum + g.grade, 0) / grades.length).toFixed(1);
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
@@ -94,7 +183,7 @@ export function StudentDashboard({ onLogout }: StudentDashboardProps) {
           <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
             <div className="flex items-center gap-2">
               <Star className="h-5 w-5 text-oxford-gold" />
-              <span className="font-medium">Nível: {currentUser.level}</span>
+              <span className="font-medium">Turma: {currentUser.level}</span>
             </div>
             <div className="flex-1 max-w-xs">
               <div className="flex justify-between text-sm mb-1">
@@ -107,10 +196,14 @@ export function StudentDashboard({ onLogout }: StudentDashboardProps) {
         </div>
 
         <Tabs defaultValue="dashboard" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 lg:grid-cols-6 h-auto p-1">
+          <TabsList className="grid w-full grid-cols-3 lg:grid-cols-7 h-auto p-1">
             <TabsTrigger value="dashboard" className="flex items-center gap-2">
               <BarChart3 className="h-4 w-4" />
               <span className="hidden sm:inline">Dashboard</span>
+            </TabsTrigger>
+            <TabsTrigger value="finance" className="flex items-center gap-2">
+              <DollarSign className="h-4 w-4" />
+              <span className="hidden sm:inline">Financeiro</span>
             </TabsTrigger>
             <TabsTrigger value="grades" className="flex items-center gap-2">
               <Trophy className="h-4 w-4" />
@@ -144,8 +237,23 @@ export function StudentDashboard({ onLogout }: StudentDashboardProps) {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-primary">8.5</div>
+                  <div className="text-3xl font-bold text-primary">{averageGrade}</div>
                   <p className="text-sm text-muted-foreground">Excelente desempenho!</p>
+                </CardContent>
+              </Card>
+
+              <Card className="shadow-elegant">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <DollarSign className="h-5 w-5 text-green-600" />
+                    Situação Financeira
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className={`text-2xl font-bold ${getPaymentStatusColor()}`}>
+                    {formatCurrency(Math.abs(paymentInfo.currentBalance))}
+                  </div>
+                  <p className="text-sm text-muted-foreground">{getPaymentStatusText()}</p>
                 </CardContent>
               </Card>
 
@@ -170,47 +278,260 @@ export function StudentDashboard({ onLogout }: StudentDashboardProps) {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-warning">2</div>
-                  <p className="text-sm text-muted-foreground">Trabalhos a entregar</p>
+                  <div className="text-3xl font-bold text-warning">
+                    {paymentInfo.overduePayments.length}
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {paymentInfo.overduePayments.length > 0 ? 'Pagamentos atrasados' : 'Tudo em dia!'}
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Seção de Ações Rápidas */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Resumo Acadêmico */}
+              <Card className="shadow-elegant">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <GraduationCap className="h-5 w-5" />
+                    Resumo Acadêmico
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Presença</span>
+                      <span className="font-semibold text-green-600">{studentData?.attendance}%</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Média Atual</span>
+                      <span className="font-semibold text-primary">{averageGrade}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Progresso</span>
+                      <span className="font-semibold text-blue-600">{currentUser.progress}%</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Ranking na Turma</span>
+                      <span className="font-semibold text-oxford-gold">#3</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Ações Rápidas - Simplificadas */}
+              <Card className="shadow-elegant">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Zap className="h-5 w-5" />
+                    Ações Rápidas
+                  </CardTitle>
+                  <CardDescription>Acesso rápido às funcionalidades essenciais</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {quickActions.map((action) => {
+                      const IconComponent = action.icon;
+                      return (
+                        <Button
+                          key={action.id}
+                          variant="outline"
+                          className="w-full justify-start h-auto p-4"
+                          onClick={() => handleQuickAction(action.id)}
+                        >
+                          <IconComponent className={`h-5 w-5 mr-3 ${action.color}`} />
+                          <span>{action.label}</span>
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Alertas Financeiros */}
+            {paymentInfo.overduePayments.length > 0 && (
+              <Card className="shadow-elegant border-red-200 bg-red-50">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <AlertTriangle className="h-5 w-5 text-red-600" />
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-red-800">Atenção: Pagamentos em Atraso</h4>
+                      <p className="text-sm text-red-600">
+                        Você possui {paymentInfo.overduePayments.length} pagamento(s) em atraso. 
+                        Total: {formatCurrency(paymentInfo.overduePayments.reduce((sum, p) => sum + p.amount, 0))}
+                      </p>
+                    </div>
+                    <Button variant="destructive" onClick={() => setPaymentModal(true)}>
+                      Ver Detalhes
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Créditos */}
+            {paymentInfo.currentBalance > 0 && (
+              <Card className="shadow-elegant border-blue-200 bg-blue-50">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <TrendingUp className="h-5 w-5 text-blue-600" />
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-blue-800">Parabéns! Você tem créditos</h4>
+                      <p className="text-sm text-blue-600">
+                        Saldo positivo de {formatCurrency(paymentInfo.currentBalance)} em pagamentos antecipados.
+                      </p>
+                    </div>
+                    <Button variant="outline" className="border-blue-300" onClick={() => setPaymentModal(true)}>
+                      Ver Histórico
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          <TabsContent value="finance" className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Card className="shadow-elegant">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    {paymentInfo.currentBalance >= 0 ? 
+                      <TrendingUp className="h-5 w-5 text-green-600" /> : 
+                      <TrendingDown className="h-5 w-5 text-red-600" />
+                    }
+                    Saldo Atual
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className={`text-3xl font-bold ${paymentInfo.currentBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {formatCurrency(Math.abs(paymentInfo.currentBalance))}
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {paymentInfo.currentBalance >= 0 ? 'Crédito disponível' : 'Valor em débito'}
+                  </p>
                 </CardContent>
               </Card>
 
               <Card className="shadow-elegant">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg flex items-center gap-2">
-                    <Star className="h-5 w-5 text-oxford-gold" />
-                    Ranking
+                    <CheckCircle className="h-5 w-5 text-green-600" />
+                    Total Pago
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-oxford-gold">#3</div>
-                  <p className="text-sm text-muted-foreground">Na sua turma</p>
+                  <div className="text-3xl font-bold text-green-600">
+                    {formatCurrency(paymentInfo.totalPaid)}
+                  </div>
+                  <p className="text-sm text-muted-foreground">Pagamentos realizados</p>
+                </CardContent>
+              </Card>
+
+              <Card className="shadow-elegant">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <CreditCard className="h-5 w-5 text-blue-600" />
+                    Mensalidade
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-blue-600">
+                    {formatCurrency(paymentInfo.monthlyFee)}
+                  </div>
+                  <p className="text-sm text-muted-foreground">Valor mensal</p>
                 </CardContent>
               </Card>
             </div>
+
+            <Card className="shadow-elegant">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Receipt className="h-5 w-5" />
+                  Últimos Pagamentos
+                </CardTitle>
+                <CardDescription>Histórico recente de pagamentos</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {paymentInfo.paymentHistory.slice(0, 5).map((payment) => (
+                    <div key={payment.id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div>
+                        <div className="font-medium">
+                          {payment.monthReference} - {formatCurrency(payment.amount)}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {payment.description}
+                        </div>
+                      </div>
+                      <Badge className={
+                        payment.status === 'paid' ? 'bg-green-100 text-green-800' :
+                        payment.status === 'overdue' ? 'bg-red-100 text-red-800' :
+                        payment.status === 'advance' ? 'bg-blue-100 text-blue-800' :
+                        'bg-yellow-100 text-yellow-800'
+                      }>
+                        {payment.status === 'paid' ? 'Pago' :
+                         payment.status === 'overdue' ? 'Em Atraso' :
+                         payment.status === 'advance' ? 'Antecipado' : 'Pendente'}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+                
+                <div className="flex justify-center mt-4">
+                  <Button variant="outline" onClick={() => setPaymentModal(true)}>
+                    Ver Histórico Completo
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="grades" className="space-y-6">
             <Card className="shadow-elegant">
               <CardHeader>
-                <CardTitle>Minhas Notas</CardTitle>
-                <CardDescription>Desempenho nas disciplinas</CardDescription>
+                <CardTitle>Minhas Notas - 1º Bimestre</CardTitle>
+                <CardDescription>Desempenho detalhado nas disciplinas</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   {grades.map((grade, index) => (
-                    <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <div className={`h-3 w-3 rounded-full ${getGradeColor(grade.grade)}`} />
-                        <span className="font-medium">{grade.subject}</span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-xl font-bold">{grade.grade}</span>
-                        <Badge variant={grade.status === "approved" ? "default" : "destructive"}>
-                          {grade.status === "approved" ? "Aprovado" : "Reprovado"}
-                        </Badge>
-                      </div>
-                    </div>
+                    <Card key={index} className="shadow-sm">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className={`h-3 w-3 rounded-full ${
+                              grade.grade >= 9 ? 'bg-green-500' :
+                              grade.grade >= 7 ? 'bg-yellow-500' : 'bg-red-500'
+                            }`} />
+                            <div>
+                              <span className="font-medium">{grade.subject}</span>
+                              <div className="text-sm text-muted-foreground">
+                                {grade.period}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="flex items-center gap-3">
+                              <span className={`text-xl font-bold ${getGradeColor(grade.grade)}`}>
+                                {grade.grade}
+                              </span>
+                              <Badge variant={grade.status === "approved" ? "default" : "destructive"}>
+                                {grade.status === "approved" ? "Aprovado" : "Reprovado"}
+                              </Badge>
+                            </div>
+                          </div>
+                        </div>
+                        {grade.feedback && (
+                          <div className="mt-3 p-2 bg-muted/50 rounded-md">
+                            <p className="text-sm text-muted-foreground">
+                              <strong>Feedback do Professor:</strong> {grade.feedback}
+                            </p>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
                   ))}
                 </div>
               </CardContent>
@@ -284,32 +605,6 @@ export function StudentDashboard({ onLogout }: StudentDashboardProps) {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Play className="h-5 w-5 text-primary" />
-                    Vocabulary Quiz
-                  </CardTitle>
-                  <CardDescription>Teste seu vocabulário</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button className="w-full">Jogar Agora</Button>
-                </CardContent>
-              </Card>
-
-              <Card className="shadow-elegant cursor-pointer hover:scale-105 transition-transform">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Play className="h-5 w-5 text-primary" />
-                    Grammar Challenge
-                  </CardTitle>
-                  <CardDescription>Desafio de gramática</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button className="w-full">Jogar Agora</Button>
-                </CardContent>
-              </Card>
-
-              <Card className="shadow-elegant cursor-pointer hover:scale-105 transition-transform">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Play className="h-5 w-5 text-primary" />
                     Listening Game
                   </CardTitle>
                   <CardDescription>Jogo de listening</CardDescription>
@@ -352,6 +647,13 @@ export function StudentDashboard({ onLogout }: StudentDashboardProps) {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Modal Financeiro Específico para Estudantes */}
+      <StudentFinanceModal
+        isOpen={paymentModal}
+        onClose={() => setPaymentModal(false)}
+        studentPaymentInfo={paymentInfo}
+      />
     </div>
   );
 }
