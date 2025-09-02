@@ -1,74 +1,65 @@
-import { useState } from "react";
+// src/pages/Index.tsx - VERSÃO CORRIGIDA
+import { useEffect } from "react";
 import { LoginForm } from "@/components/LoginForm";
-import { StudentDashboard } from "@/components/StudentDashboard";
-import { TeacherDashboard } from "@/components/TeacherDashboard";
-import { AdminDashboard } from "@/components/AdminDashboard";
 import { useToast } from "@/hooks/use-toast";
-
-interface User {
-  email: string;
-  name: string;
-  role: "student" | "teacher" | "admin";
-}
+import { useAuthStore } from "@/store/authStore";
+import { useNavigate } from "react-router-dom";
 
 const Index = () => {
-  const [user, setUser] = useState<User | null>(null);
+  const { user, isAuthenticated, isLoading, error, clearError } = useAuthStore();
   const { toast } = useToast();
+  const navigate = useNavigate();
   
-  console.log("Index component rendered, user:", user);
+  useEffect(() => {
+    // ✅ Se já estiver autenticado, redireciona para dashboard genérico
+    // O ProfileRedirect vai cuidar do redirecionamento específico
+    if (isAuthenticated) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
-  // Credenciais padrão para demonstração
-  const defaultCredentials = {
-    "admin@m007.com": { password: "admin123", name: "Administrator", role: "admin" as const },
-    "teacher@m007.com": { password: "teacher123", name: "Prof. Maria Santos", role: "teacher" as const },
-    "student@m007.com": { password: "student123", name: "João Silva", role: "student" as const },
-  };
+  useEffect(() => {
+    clearError();
+  }, [clearError]);
 
-  const handleLogin = ({ email, password, role }: { email: string; password: string; role: string }) => {
-    const credential = defaultCredentials[email as keyof typeof defaultCredentials];
-    
-    if (credential && credential.password === password && credential.role === role) {
-      setUser({
-        email,
-        name: credential.name,
-        role: credential.role,
-      });
-      
+  useEffect(() => {
+    if (error) {
       toast({
-        title: "Login realizado com sucesso!",
-        description: `Bem-vindo, ${credential.name}`,
-      });
-    } else {
-      toast({
-        title: "Erro no login",
-        description: "Credenciais inválidas. Verifique email, senha e tipo de acesso.",
+        title: "Erro de autenticação",
+        description: error,
         variant: "destructive",
       });
+      clearError();
     }
-  };
+  }, [error, toast, clearError]);
 
-  const handleLogout = () => {
-    setUser(null);
-    toast({
-      title: "Logout realizado",
-      description: "Até logo!",
-    });
-  };
-
-  if (!user) {
-    return <LoginForm onLogin={handleLogin} />;
+  // ✅ Mostra loading apenas se estiver carregando E não autenticado
+  // Se estiver autenticado, o redirecionamento acima já aconteceu
+  if (isLoading && !isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Carregando...</p>
+        </div>
+      </div>
+    );
   }
 
-  switch (user.role) {
-    case "student":
-      return <StudentDashboard onLogout={handleLogout} />;
-    case "teacher":
-      return <TeacherDashboard onLogout={handleLogout} />;
-    case "admin":
-      return <AdminDashboard onLogout={handleLogout} />;
-    default:
-      return <LoginForm onLogin={handleLogin} />;
+  // ✅ Se estiver autenticado, não mostra nada (já redirecionou)
+  if (isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Redirecionando...</p>
+        </div>
+      </div>
+    );
   }
+
+  // ✅ Se não estiver autenticado e não estiver carregando, mostra o formulário de login
+  return <LoginForm />;
 };
 
 export default Index;

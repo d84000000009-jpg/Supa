@@ -1,35 +1,58 @@
-import { useState } from "react";
+// src/components/LoginForm.tsx - VERSÃO CORRIGIDA
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { GraduationCap, BookOpen, Shield } from "lucide-react";
+import { GraduationCap, Loader2 } from "lucide-react";
+import { useAuthStore } from "@/store/authStore";
+import { useNavigate } from "react-router-dom";
 
-interface LoginFormProps {
-  onLogin: (credentials: { email: string; password: string; role: string }) => void;
-}
-
-export function LoginForm({ onLogin }: LoginFormProps) {
-  const [email, setEmail] = useState("");
+export function LoginForm() {
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState("student");
+  const { login, isLoading, error, getCsrfToken } = useAuthStore();
+  const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    // Obtém o CSRF token quando o componente montar
+    const initializeCsrf = async () => {
+      try {
+        await getCsrfToken();
+      } catch (error) {
+        console.error('Erro ao inicializar CSRF token:', error);
+      }
+    };
+    
+    initializeCsrf();
+  }, [getCsrfToken]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onLogin({ email, password, role });
-  };
-
-  const getRoleIcon = (roleType: string) => {
-    switch (roleType) {
-      case "student":
-        return <GraduationCap className="h-5 w-5" />;
-      case "teacher":
-        return <BookOpen className="h-5 w-5" />;
-      case "admin":
-        return <Shield className="h-5 w-5" />;
-      default:
-        return <GraduationCap className="h-5 w-5" />;
+    
+    try {
+      // ✅ AGORA RECEBE O PERFIL E REDIRECIONA
+      const userProfile = await login({ username, password });
+      console.log('Perfil do usuário logado:', userProfile); // ✅ DEBUG
+      
+      // ✅ REDIRECIONAMENTO CORRIGIDO - USA AS ROTAS QUE EXISTEM
+      switch (userProfile) {
+        case 'admin':
+          navigate('/admin/dashboard');    // ✅ CORRETO - esta rota existe
+          break;
+        case 'docente':
+          navigate('/teacher/dashboard');  // ✅ CORRIGIDO - muda para teacher
+          break;
+        case 'aluno':
+          navigate('/student/dashboard');  // ✅ CORRIGIDO - muda para student
+          break;
+        default:
+          navigate('/dashboard'); // Fallback
+      }
+      
+    } catch (error) {
+      console.error('Login error:', error);
+      // O erro já é tratado no store, não precisa fazer nada aqui
     }
   };
 
@@ -54,53 +77,29 @@ export function LoginForm({ onLogin }: LoginFormProps) {
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl text-center">Entrar</CardTitle>
             <CardDescription className="text-center">
-              Selecione seu tipo de acesso e faça login
+              Digite suas credenciais para acessar o sistema
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {error && (
+              <div className="mb-4 p-3 bg-destructive/10 border border-destructive rounded-md">
+                <p className="text-destructive text-sm">{error}</p>
+              </div>
+            )}
+
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="role">Tipo de Acesso</Label>
-                <Select value={role} onValueChange={setRole}>
-                  <SelectTrigger className="h-12">
-                    <div className="flex items-center gap-2">
-                      {getRoleIcon(role)}
-                      <SelectValue placeholder="Selecione o tipo de acesso" />
-                    </div>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="student">
-                      <div className="flex items-center gap-2">
-                        <GraduationCap className="h-4 w-4" />
-                        Estudante
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="teacher">
-                      <div className="flex items-center gap-2">
-                        <BookOpen className="h-4 w-4" />
-                        Docente
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="admin">
-                      <div className="flex items-center gap-2">
-                        <Shield className="h-4 w-4" />
-                        Administrador
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="username">Username</Label>
                 <Input
-                  id="email"
-                  type="email"
-                  placeholder="seu.email@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  id="username"
+                  type="text"
+                  placeholder="Seu username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
                   required
                   className="h-12"
+                  disabled={isLoading}
+                  autoComplete="username"
                 />
               </div>
 
@@ -109,11 +108,13 @@ export function LoginForm({ onLogin }: LoginFormProps) {
                 <Input
                   id="password"
                   type="password"
-                  placeholder="••••••••"
+                  placeholder="Digite sua senha"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   className="h-12"
+                  disabled={isLoading}
+                  autoComplete="current-password"
                 />
               </div>
 
@@ -122,20 +123,23 @@ export function LoginForm({ onLogin }: LoginFormProps) {
                 className="w-full" 
                 size="lg"
                 variant="default"
+                disabled={isLoading}
               >
-                Entrar
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Entrando...
+                  </>
+                ) : (
+                  'Entrar'
+                )}
               </Button>
             </form>
 
             <div className="mt-6 text-center">
               <p className="text-sm text-muted-foreground">
-                Credenciais padrão para teste:
+                Entre com suas credenciais institucionais
               </p>
-              <div className="mt-2 space-y-1 text-xs">
-                <p><strong>Admin:</strong> admin@m007.com / admin123</p>
-                <p><strong>Docente:</strong> teacher@m007.com / teacher123</p>
-                <p><strong>Estudante:</strong> student@m007.com / student123</p>
-              </div>
             </div>
           </CardContent>
         </Card>
