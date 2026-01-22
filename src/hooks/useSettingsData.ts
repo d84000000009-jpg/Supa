@@ -63,7 +63,7 @@ const SETTINGS_STORAGE_KEY = 'oxford_general_settings';
 
 const defaultSettings: GeneralSettings = {
   // Informações da Instituição
-  institutionName: "M007 Oxford",
+  institutionName: "  ISAC",
   institutionAddress: "Maputo, Moçambique",
   institutionPhone: "+258 84 000 0000",
   institutionEmail: "info@m007oxford.com",

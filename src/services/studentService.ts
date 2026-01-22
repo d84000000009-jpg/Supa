@@ -1,0 +1,177 @@
+/**
+ * STUDENT SERVICE - ENGLISH VERSION
+ * 
+ * 📁 LOCATION: src/services/studentService.ts
+ */
+
+import apiClient from './api';
+
+// Complete student interface (matching database - English)
+export interface Student {
+  id: number;
+  name: string;
+  email: string;
+  phone?: string;
+  birth_date?: string;
+  address?: string;
+  enrollment_number: string;
+  bi_number: string;
+  gender: 'M' | 'F';
+  curso_id: string;
+  curso?: string;
+  enrollment_year?: number;
+  emergency_contact_1?: string;
+  emergency_contact_2?: string;
+  notes?: string;
+  status: 'ativo' | 'inativo';
+  created_at?: string;
+  updated_at?: string;
+}
+
+// Interface for creating student
+export interface CreateStudentData {
+  name: string;
+  email: string;
+  phone?: string;
+  birth_date?: string;
+  address?: string;
+  enrollment_number: string;
+  bi_number: string;
+  gender: 'M' | 'F';
+  curso_id: string;
+  curso?: string;
+  enrollment_year?: number;
+  emergency_contact_1?: string;
+  emergency_contact_2?: string;
+  notes?: string;
+  status?: 'ativo' | 'inativo';
+  class_id?: number; // To link to class during creation
+}
+
+// Interface for updating student
+export interface UpdateStudentData {
+  id: number;
+  name?: string;
+  email?: string;
+  phone?: string;
+  birth_date?: string;
+  address?: string;
+  enrollment_number?: string;
+  bi_number?: string;
+  gender?: 'M' | 'F';
+  curso_id?: string;
+  curso?: string;
+  enrollment_year?: number;
+  emergency_contact_1?: string;
+  emergency_contact_2?: string;
+  notes?: string;
+  status?: 'ativo' | 'inativo';
+}
+
+class StudentService {
+  /**
+   * 📋 List all students
+   */
+  async getAll(): Promise<Student[]> {
+    try {
+      const response = await apiClient.get<Student[]>('/api/students.php');
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error: any) {
+      console.error('Error fetching students:', error);
+      throw new Error(error.response?.data?.message || 'Error fetching students');
+    }
+  }
+
+  /**
+   * 🔍 Get student by ID
+   */
+  async getById(id: number): Promise<Student> {
+    try {
+      const response = await apiClient.get<Student[]>(`/api/students.php?id=${id}`);
+      
+      if (Array.isArray(response.data) && response.data.length > 0) {
+        return response.data[0];
+      }
+      
+      throw new Error('Student not found');
+    } catch (error: any) {
+      console.error('Error fetching student:', error);
+      throw new Error(error.response?.data?.message || 'Error fetching student');
+    }
+  }
+
+  /**
+   * ➕ Create new student
+   */
+  async create(studentData: CreateStudentData): Promise<{ success: boolean; message: string; id?: number }> {
+    try {
+      console.log('📤 Sending student data to API:', studentData);
+      
+      const response = await apiClient.post<{ success: boolean; message: string; id?: number }>(
+        '/api/students.php', 
+        studentData
+      );
+      
+      console.log('✅ API Response:', response.data);
+      
+      return {
+        success: response.data.success ?? true,
+        message: response.data.message || 'Student created successfully',
+        id: response.data.id
+      };
+    } catch (error: any) {
+      console.error('❌ Error creating student:', error);
+      console.error('Response data:', error.response?.data);
+      const errorMessage = error.response?.data?.message || 'Error creating student';
+      throw new Error(errorMessage);
+    }
+  }
+
+  /**
+   * ✏️ Update student
+   */
+  async update(studentData: UpdateStudentData): Promise<{ success: boolean; message: string }> {
+    try {
+      if (!studentData.id) {
+        throw new Error('Student ID is required for update');
+      }
+
+      const response = await apiClient.put<{ success: boolean; message: string }>(
+        '/api/students.php',
+        studentData
+      );
+      
+      return {
+        success: response.data.success ?? true,
+        message: response.data.message || 'Student updated successfully'
+      };
+    } catch (error: any) {
+      console.error('Error updating student:', error);
+      throw new Error(error.response?.data?.message || 'Error updating student');
+    }
+  }
+
+  /**
+   * 🗑️ Delete student (soft delete)
+   */
+  async delete(id: number): Promise<{ success: boolean; message: string }> {
+    try {
+      const response = await apiClient.delete<{ success: boolean; message: string }>(
+        '/api/students.php',
+        {
+          data: { id }
+        }
+      );
+      
+      return {
+        success: response.data.success ?? true,
+        message: response.data.message || 'Student deleted successfully'
+      };
+    } catch (error: any) {
+      console.error('Error deleting student:', error);
+      throw new Error(error.response?.data?.message || 'Error deleting student');
+    }
+  }
+}
+
+export default new StudentService();

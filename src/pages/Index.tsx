@@ -11,8 +11,7 @@ const Index = () => {
   const navigate = useNavigate();
   
   useEffect(() => {
-    // ✅ Se já estiver autenticado, redireciona para dashboard genérico
-    // O ProfileRedirect vai cuidar do redirecionamento específico
+
     if (isAuthenticated) {
       navigate('/dashboard', { replace: true });
     }

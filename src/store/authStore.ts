@@ -1,53 +1,23 @@
-// src/store/authStore.ts - VERSÃO FINAL COM PERSISTÊNCIA
-import { create } from 'zustand'
-import { devtools, persist } from 'zustand/middleware'
+// src/store/authStore.ts - ✅ COM SUPORTE A ACADEMIC_ADMIN
+import { create } from 'zustand';
+import { devtools, persist } from 'zustand/middleware';
+import authService, { User } from '@/services/authService';
 
-interface User {
-  id: number
-  username: string
-  email: string
-  first_name: string
-  last_name: string
-  phone: string
-  profile: 'admin' | 'docente' | 'aluno'
-  is_active: boolean
-  is_staff: boolean
-  is_superuser: boolean
-  date_joined: string
-  last_login: string
-  addresses: any[]
-}
+// ✅ TIPO ATUALIZADO COM ACADEMIC_ADMIN
+export type UserProfile = 'admin' | 'academic_admin' | 'docente' | 'aluno';
 
 interface AuthState {
-  user: User | null
-  isAuthenticated: boolean
-  isLoading: boolean
-  error: string | null
-  login: (credentials: { username: string; password: string }) => Promise<'admin' | 'docente' | 'aluno' | null>
-  logout: () => Promise<void>
-  checkAuth: () => Promise<void>
-  clearError: () => void
-  getCsrfToken: () => Promise<string | null>
+  user: User | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  error: string | null;
+  
+  // Actions - ✅ TIPO ATUALIZADO
+  login: (credentials: { email: string; senha: string }) => Promise<UserProfile | null>;
+  logout: () => void;
+  checkAuth: () => void;
+  clearError: () => void;
 }
-
-const API_BASE_URL = 'http://localhost:8000/api/account'
-
-const getCookie = (name: string): string | null => {
-  if (typeof document === 'undefined') return null;
-  // Usa regex para capturar corretamente o valor mesmo se contiver '=' e decodifica
-  const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const match = document.cookie.match(new RegExp('(?:^|; )' + escapedName + '=([^;]*)'));
-  return match ? decodeURIComponent(match[1]) : null;
-};
-
-// Parser JSON seguro: tenta parsear, se falhar retorna null
-const safeJson = async (res: Response): Promise<any | null> => {
-  try {
-    return await res.json();
-  } catch (e) {
-    return null;
-  }
-};
 
 export const useAuthStore = create<AuthState>()(
   devtools(
@@ -58,157 +28,151 @@ export const useAuthStore = create<AuthState>()(
         isLoading: false,
         error: null,
 
-        getCsrfToken: async (): Promise<string | null> => {
-          return getCookie('csrftoken');
-        },
-
-  login: async (credentials): Promise<'admin' | 'docente' | 'aluno' | null> => {
+        login: async (credentials): Promise<UserProfile | null> => {
           set({ isLoading: true, error: null });
           
           try {
-            let csrfToken = getCookie('csrftoken');
+            console.log('\n🔄 [authStore] === INICIANDO LOGIN ===');
+            console.log('📧 Email:', credentials.email);
             
-            if (!csrfToken) {
-              await fetch(`${API_BASE_URL}/login/`, {
-                method: 'GET',
-                credentials: 'include',
-              });
-              csrfToken = getCookie('csrftoken');
-            }
-
-            if (!csrfToken) {
-              throw new Error('Não foi possível obter token CSRF');
-            }
-
-            // 1. Faz login
-            const loginResponse = await fetch(`${API_BASE_URL}/login/`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': csrfToken,
-              },
-              credentials: 'include',
-              body: JSON.stringify(credentials),
+            // ✅ Chama authService.login() que já salva os tokens
+            const response = await authService.login(credentials);
+            
+            console.log('📦 [authStore] Resposta recebida:', {
+              success: response.success,
+              hasUser: !!response.data?.user,
+              hasToken: !!response.data?.access_token,
+              role: response.data?.user?.role
             });
-
-            if (!loginResponse.ok) {
-              const errorData = await safeJson(loginResponse);
-              const message = (errorData && (errorData.detail || errorData.message)) || `Erro ao fazer login (status ${loginResponse.status})`;
-              throw new Error(message);
+            
+            if (!response.success) {
+              throw new Error(response.message || 'Erro ao fazer login');
             }
 
-            // ✅ Aguarda para cookies serem processados
-            await new Promise(resolve => setTimeout(resolve, 100));
-
-            // 2. Busca dados do usuário
-            const profileResponse = await fetch(`${API_BASE_URL}/profile/`, {
-              method: 'GET',
-              credentials: 'include',
-              headers: {
-                'X-CSRFToken': csrfToken,
-              },
+            const userData = response.data.user;
+            const accessToken = response.data.access_token;
+            
+            if (!userData || !accessToken) {
+              throw new Error('Dados incompletos na resposta do servidor');
+            }
+            
+            // ✅ VALIDAR ROLE
+            const validRoles: UserProfile[] = ['admin', 'academic_admin', 'docente', 'aluno'];
+            if (!validRoles.includes(userData.role as UserProfile)) {
+              throw new Error(`Role inválido: ${userData.role}`);
+            }
+            
+            // ✅ CRÍTICO: Garantir que o token está no localStorage
+            const tokenSaved = localStorage.getItem('access_token');
+            
+            console.log('\n🔐 [authStore] === VERIFICAÇÃO DE TOKEN ===');
+            console.log('Token da resposta:', accessToken.substring(0, 30) + '...');
+            console.log('Token no localStorage:', tokenSaved ? tokenSaved.substring(0, 30) + '...' : 'NÃO ENCONTRADO');
+            
+            if (!tokenSaved) {
+              console.error('❌ [authStore] Token não foi salvo! Salvando agora...');
+              localStorage.setItem('access_token', accessToken);
+              console.log('✅ Token salvo manualmente');
+            }
+            
+            // ✅ Adiciona alias 'profile' para compatibilidade
+            const userWithProfile = {
+              ...userData,
+              profile: userData.role as UserProfile
+            };
+            
+            set({
+              user: userWithProfile,
+              isAuthenticated: true,
+              isLoading: false,
+              error: null
             });
-
-            if (profileResponse.ok) {
-              const userData = await safeJson(profileResponse);
-              set({
-                user: userData,
-                isAuthenticated: true,
-                isLoading: false,
-                error: null
-              });
-              
-              return userData?.profile ?? null;
-            } else {
-              // Tenta alternativa: usa dados do login response
-              const loginData = await safeJson(loginResponse);
-              if (loginData && loginData.user) {
-                set({
-                  user: loginData.user,
-                  isAuthenticated: true,
-                  isLoading: false,
-                  error: null
-                });
-                return loginData.user.profile ?? null;
-              }
-
-              throw new Error(`Erro ao obter dados do usuário (profile status ${profileResponse.status})`);
-            }
+            
+            console.log('\n✅ [authStore] === LOGIN COMPLETO ===');
+            console.log('👤 Usuário:', userData.nome);
+            console.log('🎭 Role:', userData.role);
+            console.log('🔐 Token salvo:', !!localStorage.getItem('access_token'));
+            
+            return userData.role as UserProfile;
 
           } catch (error: any) {
+            console.error('\n❌ [authStore] === ERRO NO LOGIN ===');
+            console.error('Mensagem:', error.message);
+            console.error('Stack:', error.stack);
+            
             set({
               isLoading: false,
-              error: error.message,
+              error: error.message || 'Erro ao conectar com o servidor',
               isAuthenticated: false,
               user: null
             });
+            
             throw error;
           }
         },
 
-        logout: async () => {
-          set({ isLoading: true });
+        logout: () => {
+          console.log('\n👋 [authStore] === FAZENDO LOGOUT ===');
           
-          try {
-            const csrfToken = getCookie('csrftoken');
-            
-            await fetch(`${API_BASE_URL}/logout/`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                ...(csrfToken && { 'X-CSRFToken': csrfToken }),
-              },
-              credentials: 'include',
-            });
-
-          } catch (error: any) {
-            console.error('Erro no logout:', error);
-          } finally {
-            // ✅ Limpa o estado completamente
-            set({
-              user: null,
-              isAuthenticated: false,
-              isLoading: false,
-              error: null
-            });
-          }
+          // ✅ Limpa tokens via authService
+          authService.logout();
+          
+          // ✅ Limpa estado do Zustand
+          set({
+            user: null,
+            isAuthenticated: false,
+            isLoading: false,
+            error: null
+          });
+          
+          console.log('✅ [authStore] Logout completo');
+          console.log('Token removido:', !localStorage.getItem('access_token'));
         },
 
-        checkAuth: async () => {
-          set({ isLoading: true });
+        checkAuth: () => {
+          console.log('\n🔍 [authStore] === VERIFICANDO AUTENTICAÇÃO ===');
           
-          try {
-            const csrfToken = getCookie('csrftoken');
-            const response = await fetch(`${API_BASE_URL}/profile/`, {
-              method: 'GET',
-              credentials: 'include',
-              headers: {
-                ...(csrfToken && { 'X-CSRFToken': csrfToken }),
-              },
-            });
-
-            if (response.ok) {
-              const userData = await safeJson(response);
-              set({
-                user: userData,
-                isAuthenticated: true,
-                isLoading: false,
-                error: null
-              });
-            } else {
-              // ✅ Não é erro, só não está autenticado
+          const isAuth = authService.isAuthenticated();
+          const user = authService.getCurrentUser();
+          const token = authService.getAccessToken();
+          
+          console.log('Token presente:', !!token);
+          console.log('Usuário presente:', !!user);
+          console.log('isAuth:', isAuth);
+          
+          if (isAuth && user && token) {
+            console.log('✅ Usuário autenticado:', user.nome, `(${user.role})`);
+            
+            // ✅ Validar role
+            const validRoles: UserProfile[] = ['admin', 'academic_admin', 'docente', 'aluno'];
+            if (!validRoles.includes(user.role as UserProfile)) {
+              console.error('❌ Role inválido:', user.role);
+              authService.logout();
               set({
                 isAuthenticated: false,
-                user: null,
-                isLoading: false,
-                error: null
+                user: null
               });
+              return;
             }
-          } catch (error: any) {
-            // ✅ Erro de rede, mas não limpa estado persistido
+            
             set({
-              isLoading: false,
-              error: error.message
+              user: {
+                ...user,
+                profile: user.role as UserProfile
+              },
+              isAuthenticated: true
+            });
+          } else {
+            console.log('❌ Usuário não autenticado ou token ausente');
+            
+            // Limpar tudo se algo estiver inconsistente
+            if (!token) {
+              authService.logout();
+            }
+            
+            set({
+              isAuthenticated: false,
+              user: null
             });
           }
         },
@@ -217,13 +181,13 @@ export const useAuthStore = create<AuthState>()(
       }),
       {
         name: 'auth-storage',
-        // ✅ PERSISTÊNCIA - Mantém o estado entre recarregamentos
+        // Persiste apenas dados essenciais (NÃO o token - fica no localStorage)
         partialize: (state) => ({ 
           user: state.user,
           isAuthenticated: state.isAuthenticated
         })
       }
     ),
-    { name: 'auth-storage' }
+    { name: 'auth-store' }
   )
 );

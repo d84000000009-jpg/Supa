@@ -1,3 +1,4 @@
+// src/components/GerenciarTurmas.tsx - VERSÃO CORRIGIDA
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,195 +11,201 @@ import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Users, Plus, Edit, Trash2, Search, Calendar, Clock, User, BookOpen } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-
-interface Class {
-  id: string;
-  name: string;
-  level: string;
-  teacher: string;
-  schedule: string;
-  startDate: string;
-  endDate: string;
-  maxStudents: number;
-  currentStudents: number;
-  status: "ativo" | "inativo" | "completo";
-  description: string;
-  room: string;
-}
+import { useClassData } from "@/hooks/useClassData";
 
 export function GerenciarTurmas() {
   const { toast } = useToast();
-  const [classes, setClasses] = useState<Class[]>([
-    {
-      id: "1",
-      name: "Básico A1 - Manhã",
-      level: "A1",
-      teacher: "Prof. Maria Silva",
-      schedule: "Seg, Qua, Sex - 08:00-10:00",
-      startDate: "2024-02-01",
-      endDate: "2024-05-31",
-      maxStudents: 15,
-      currentStudents: 12,
-      status: "ativo",
-      description: "Curso básico de inglês para iniciantes",
-      room: "Sala 101",
-    },
-    {
-      id: "2",
-      name: "Intermediário B1 - Tarde",
-      level: "B1",
-      teacher: "Prof. João Santos",
-      schedule: "Ter, Qui - 14:00-17:00",
-      startDate: "2024-01-15",
-      endDate: "2024-06-15",
-      maxStudents: 12,
-      currentStudents: 8,
-      status: "ativo",
-      description: "Curso intermediário com foco em conversação",
-      room: "Sala 102",
-    },
-  ]);
+  const { classes, loading, error, addClass, updateClass, deleteClass, refetch } = useClassData();
 
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingClass, setEditingClass] = useState<Class | null>(null);
-  const [formData, setFormData] = useState<{
-    name: string;
-    level: string;
-    teacher: string;
-    schedule: string;
-    startDate: string;
-    endDate: string;
-    maxStudents: number;
-    description: string;
-    room: string;
-    status: "ativo" | "inativo" | "completo";
-  }>({
-    name: "",
-    level: "",
-    teacher: "",
-    schedule: "",
-    startDate: "",
-    endDate: "",
-    maxStudents: 15,
-    description: "",
-    room: "",
-    status: "ativo",
+  const [editingClass, setEditingClass] = useState<any>(null);
+  
+  const [formData, setFormData] = useState({
+    codigo: "",
+    nome: "",
+    disciplina: "",
+    professor_id: null as number | null,
+    semestre: "",
+    ano_letivo: new Date().getFullYear(),
+    duracao_meses: 6,
+    capacidade_maxima: 30,
+    sala: "",
+    dias_semana: [] as string[],
+    horario_inicio: "",
+    horario_fim: "",
+    data_inicio: "",
+    data_fim: "",
+    carga_horaria: null as number | null,
+    creditos: null as number | null,
+    observacoes: "",
+    status: "ativo" as "ativo" | "inativo" | "finalizado" | "cancelado",
   });
 
-  const teachers = [
-    "Prof. Maria Silva",
-    "Prof. João Santos",
-    "Prof. Ana Costa",
-    "Prof. Pedro Lima",
-  ];
-
-  const levels = ["A1", "A2", "B1", "B2", "C1", "C2"];
-
   const filteredClasses = classes.filter((cls) =>
-    cls.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    cls.teacher.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    cls.level.toLowerCase().includes(searchTerm.toLowerCase())
+    cls.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (cls.teacher_name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+    cls.disciplina?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    cls.codigo?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleEdit = (cls: Class) => {
+  const handleEdit = (cls: any) => {
     setEditingClass(cls);
     setFormData({
-      name: cls.name,
-      level: cls.level,
-      teacher: cls.teacher,
-      schedule: cls.schedule,
-      startDate: cls.startDate,
-      endDate: cls.endDate,
-      maxStudents: cls.maxStudents,
-      description: cls.description,
-      room: cls.room,
-      status: cls.status,
+      codigo: cls.codigo || "",
+      nome: cls.name || cls.nome || "",
+      disciplina: cls.disciplina || "",
+      professor_id: cls.professor_id || null,
+      semestre: cls.semestre || "",
+      ano_letivo: cls.ano_letivo || new Date().getFullYear(),
+      duracao_meses: cls.duracao_meses || 6,
+      capacidade_maxima: cls.max_students || cls.capacidade_maxima || 30,
+      sala: cls.sala || "",
+      dias_semana: cls.dias_semana ? cls.dias_semana.split(',') : [],
+      horario_inicio: cls.horario_inicio || "",
+      horario_fim: cls.horario_fim || "",
+      data_inicio: cls.data_inicio || "",
+      data_fim: cls.data_fim || "",
+      carga_horaria: cls.carga_horaria || null,
+      creditos: cls.creditos || null,
+      observacoes: cls.description || cls.observacoes || "",
+      status: cls.status || "ativo",
     });
     setIsDialogOpen(true);
   };
 
-  const handleSave = () => {
-    if (!formData.name || !formData.level || !formData.teacher || !formData.schedule || !formData.startDate || !formData.endDate || !formData.room) {
-      toast({
-        title: "Erro",
-        description: "Por favor, preencha todos os campos obrigatórios.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (new Date(formData.endDate) <= new Date(formData.startDate)) {
-      toast({
-        title: "Erro",
-        description: "A data de fim deve ser posterior à data de início.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (editingClass) {
-      setClasses((prev) =>
-        prev.map((cls) =>
-          cls.id === editingClass.id
-            ? { ...cls, ...formData }
-            : cls
-        )
-      );
-      toast({
-        title: "Turma atualizada",
-        description: "Os dados da turma foram atualizados com sucesso.",
-      });
-    } else {
-      const newClass: Class = {
-        id: Date.now().toString(),
-        ...formData,
-        currentStudents: 0,
-      };
-      setClasses((prev) => [...prev, newClass]);
-      toast({
-        title: "Turma criada",
-        description: "Nova turma foi criada com sucesso.",
-      });
-    }
-    setIsDialogOpen(false);
-    setEditingClass(null);
+  const resetForm = () => {
     setFormData({
-      name: "",
-      level: "",
-      teacher: "",
-      schedule: "",
-      startDate: "",
-      endDate: "",
-      maxStudents: 15,
-      description: "",
-      room: "",
+      codigo: "",
+      nome: "",
+      disciplina: "",
+      professor_id: null,
+      semestre: "",
+      ano_letivo: new Date().getFullYear(),
+      duracao_meses: 6,
+      capacidade_maxima: 30,
+      sala: "",
+      dias_semana: [],
+      horario_inicio: "",
+      horario_fim: "",
+      data_inicio: "",
+      data_fim: "",
+      carga_horaria: null,
+      creditos: null,
+      observacoes: "",
       status: "ativo",
     });
   };
 
-  const handleDelete = (classId: string) => {
-    setClasses((prev) => prev.filter((cls) => cls.id !== classId));
-    toast({
-      title: "Turma removida",
-      description: "A turma foi removida com sucesso.",
-    });
+  const handleSave = async () => {
+    // ✅ VALIDAÇÕES DETALHADAS
+    console.log('🔍 Validando formulário...', formData);
+
+    if (!formData.codigo || !formData.nome || !formData.disciplina || !formData.duracao_meses) {
+      toast({
+        title: "❌ Campos obrigatórios",
+        description: "Preencha: Código, Nome, Disciplina e Duração",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (formData.dias_semana.length === 0) {
+      toast({
+        title: "❌ Dias da semana",
+        description: "Selecione pelo menos um dia da semana",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!formData.horario_inicio || !formData.horario_fim) {
+      toast({
+        title: "❌ Horários obrigatórios",
+        description: "Preencha horário de início e fim",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (formData.data_fim && formData.data_inicio &&
+      new Date(formData.data_fim) <= new Date(formData.data_inicio)) {
+      toast({
+        title: "❌ Datas inválidas",
+        description: "A data de fim deve ser posterior à data de início",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      console.log('📤 Enviando dados para API...', formData);
+
+      if (editingClass) {
+        await updateClass(editingClass.id, formData);
+        toast({
+          title: "✅ Turma atualizada",
+          description: "Os dados da turma foram atualizados com sucesso.",
+        });
+      } else {
+        await addClass(formData);
+        toast({
+          title: "✅ Turma criada",
+          description: "Nova turma foi criada com sucesso.",
+        });
+      }
+
+      setIsDialogOpen(false);
+      setEditingClass(null);
+      resetForm();
+      refetch();
+      
+    } catch (error: any) {
+      console.error("❌ Erro ao salvar turma:", error);
+      console.error("Detalhes:", error.response?.data);
+      
+      toast({
+        title: "❌ Erro ao salvar",
+        description: error.response?.data?.message || error.message || "Erro desconhecido",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDelete = async (classId: number) => {
+    if (!confirm("Tem certeza que deseja remover esta turma?")) return;
+
+    try {
+      await deleteClass(classId);
+      toast({
+        title: "✅ Turma removida",
+        description: "A turma foi removida com sucesso.",
+      });
+      refetch();
+    } catch (error: any) {
+      toast({
+        title: "❌ Erro",
+        description: error.response?.data?.message || "Erro ao remover turma",
+        variant: "destructive",
+      });
+    }
   };
 
   const getStatusBadge = (status: string) => {
     const variants = {
-      ativo: "bg-success text-success-foreground",
-      inativo: "bg-muted text-muted-foreground",
-      completo: "bg-warning text-warning-foreground",
+      ativo: "bg-green-500 text-white",
+      inativo: "bg-gray-500 text-white",
+      finalizado: "bg-blue-500 text-white",
+      cancelado: "bg-red-500 text-white",
     };
     return variants[status as keyof typeof variants] || variants.ativo;
   };
 
   const getOccupancyColor = (current: number, max: number) => {
     const percentage = (current / max) * 100;
-    if (percentage >= 90) return "text-destructive";
-    if (percentage >= 70) return "text-warning";
-    return "text-success";
+    if (percentage >= 90) return "text-red-600";
+    if (percentage >= 70) return "text-orange-600";
+    return "text-green-600";
   };
 
   return (
@@ -213,167 +220,258 @@ export function GerenciarTurmas() {
             Administre turmas, horários e professores
           </p>
         </div>
+        
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button onClick={() => {
               setEditingClass(null);
-              setFormData({
-                name: "",
-                level: "",
-                teacher: "",
-                schedule: "",
-                startDate: "",
-                endDate: "",
-                maxStudents: 15,
-                description: "",
-                room: "",
-                status: "ativo",
-              });
+              resetForm();
             }}>
               <Plus className="h-4 w-4 mr-2" />
               Nova Turma
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+
+          <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
                 {editingClass ? "Editar Turma" : "Nova Turma"}
               </DialogTitle>
             </DialogHeader>
+
             <div className="space-y-4">
+              {/* Código e Nome */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="name">Nome da Turma</Label>
+                  <Label htmlFor="codigo">Código da Turma *</Label>
                   <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="Ex: Básico A1 - Manhã"
+                    id="codigo"
+                    value={formData.codigo}
+                    onChange={(e) => setFormData({ ...formData, codigo: e.target.value })}
+                    placeholder="Ex: TUR001"
                   />
                 </div>
                 <div>
-                  <Label htmlFor="level">Nível</Label>
-                  <Select value={formData.level} onValueChange={(value) => setFormData({ ...formData, level: value })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o nível" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {levels.map(level => (
-                        <SelectItem key={level} value={level}>{level}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="nome">Nome da Turma *</Label>
+                  <Input
+                    id="nome"
+                    value={formData.nome}
+                    onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
+                    placeholder="Ex: Básico A1 - Manhã"
+                  />
                 </div>
               </div>
 
+              {/* Disciplina e Sala */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="teacher">Professor</Label>
-                  <Select value={formData.teacher} onValueChange={(value) => setFormData({ ...formData, teacher: value })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o professor" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {teachers.map(teacher => (
-                        <SelectItem key={teacher} value={teacher}>{teacher}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="disciplina">Disciplina *</Label>
+                  <Input
+                    id="disciplina"
+                    value={formData.disciplina}
+                    onChange={(e) => setFormData({ ...formData, disciplina: e.target.value })}
+                    placeholder="Ex: Inglês Básico"
+                  />
                 </div>
                 <div>
-                  <Label htmlFor="room">Sala</Label>
+                  <Label htmlFor="sala">Sala</Label>
                   <Input
-                    id="room"
-                    value={formData.room}
-                    onChange={(e) => setFormData({ ...formData, room: e.target.value })}
+                    id="sala"
+                    value={formData.sala}
+                    onChange={(e) => setFormData({ ...formData, sala: e.target.value })}
                     placeholder="Ex: Sala 101"
                   />
                 </div>
               </div>
 
+              {/* Semestre e Ano */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="semestre">Semestre</Label>
+                  <Input
+                    id="semestre"
+                    value={formData.semestre}
+                    onChange={(e) => setFormData({ ...formData, semestre: e.target.value })}
+                    placeholder="Ex: 1º Semestre"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="ano_letivo">Ano Letivo</Label>
+                  <Input
+                    id="ano_letivo"
+                    type="number"
+                    value={formData.ano_letivo}
+                    onChange={(e) => setFormData({ ...formData, ano_letivo: parseInt(e.target.value) || new Date().getFullYear() })}
+                  />
+                </div>
+              </div>
+
+              {/* Dias da Semana */}
               <div>
-                <Label htmlFor="schedule">Horário</Label>
-                <Input
-                  id="schedule"
-                  value={formData.schedule}
-                  onChange={(e) => setFormData({ ...formData, schedule: e.target.value })}
-                  placeholder="Ex: Seg, Qua, Sex - 08:00-10:00"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="startDate">Data de Início</Label>
-                  <Input
-                    id="startDate"
-                    type="date"
-                    value={formData.startDate}
-                    onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="endDate">Data de Fim</Label>
-                  <Input
-                    id="endDate"
-                    type="date"
-                    value={formData.endDate}
-                    onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                  />
+                <Label>Dias da Semana *</Label>
+                <div className="grid grid-cols-3 gap-2 mt-2">
+                  {['segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'].map(dia => (
+                    <Button
+                      key={dia}
+                      type="button"
+                      variant={formData.dias_semana.includes(dia) ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => {
+                        const newDias = formData.dias_semana.includes(dia)
+                          ? formData.dias_semana.filter(d => d !== dia)
+                          : [...formData.dias_semana, dia];
+                        setFormData({ ...formData, dias_semana: newDias });
+                      }}
+                    >
+                      {dia.charAt(0).toUpperCase() + dia.slice(1)}
+                    </Button>
+                  ))}
                 </div>
               </div>
 
+              {/* Horários */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="maxStudents">Máximo de Estudantes</Label>
+                  <Label htmlFor="horario_inicio">Horário Início *</Label>
                   <Input
-                    id="maxStudents"
+                    id="horario_inicio"
+                    type="time"
+                    value={formData.horario_inicio}
+                    onChange={(e) => setFormData({ ...formData, horario_inicio: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="horario_fim">Horário Fim *</Label>
+                  <Input
+                    id="horario_fim"
+                    type="time"
+                    value={formData.horario_fim}
+                    onChange={(e) => setFormData({ ...formData, horario_fim: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              {/* Datas */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="data_inicio">Data de Início</Label>
+                  <Input
+                    id="data_inicio"
+                    type="date"
+                    value={formData.data_inicio}
+                    onChange={(e) => setFormData({ ...formData, data_inicio: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="data_fim">Data de Fim</Label>
+                  <Input
+                    id="data_fim"
+                    type="date"
+                    value={formData.data_fim}
+                    onChange={(e) => setFormData({ ...formData, data_fim: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              {/* Duração, Capacidade e Status */}
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="duracao_meses">Duração (meses) *</Label>
+                  <Input
+                    id="duracao_meses"
                     type="number"
                     min="1"
-                    max="30"
-                    value={formData.maxStudents}
-                    onChange={(e) => setFormData({ ...formData, maxStudents: parseInt(e.target.value) || 15 })}
+                    value={formData.duracao_meses}
+                    onChange={(e) => setFormData({ ...formData, duracao_meses: parseInt(e.target.value) || 6 })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="capacidade_maxima">Capacidade</Label>
+                  <Input
+                    id="capacidade_maxima"
+                    type="number"
+                    min="1"
+                    value={formData.capacidade_maxima}
+                    onChange={(e) => setFormData({ ...formData, capacidade_maxima: parseInt(e.target.value) || 30 })}
                   />
                 </div>
                 <div>
                   <Label htmlFor="status">Status</Label>
-                  <Select value={formData.status} onValueChange={(value: any) => setFormData({ ...formData, status: value })}>
+                  <Select
+                    value={formData.status}
+                    onValueChange={(value: any) => setFormData({ ...formData, status: value })}
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="ativo">Ativo</SelectItem>
                       <SelectItem value="inativo">Inativo</SelectItem>
-                      <SelectItem value="completo">Completo</SelectItem>
+                      <SelectItem value="finalizado">Finalizado</SelectItem>
+                      <SelectItem value="cancelado">Cancelado</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
 
+              {/* Carga Horária e Créditos */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="carga_horaria">Carga Horária (h)</Label>
+                  <Input
+                    id="carga_horaria"
+                    type="number"
+                    value={formData.carga_horaria || ''}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      carga_horaria: e.target.value ? parseInt(e.target.value) : null
+                    })}
+                    placeholder="Ex: 60"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="creditos">Créditos</Label>
+                  <Input
+                    id="creditos"
+                    type="number"
+                    value={formData.creditos || ''}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      creditos: e.target.value ? parseInt(e.target.value) : null
+                    })}
+                    placeholder="Ex: 4"
+                  />
+                </div>
+              </div>
+
+              {/* Observações */}
               <div>
-                <Label htmlFor="description">Descrição</Label>
+                <Label htmlFor="observacoes">Observações</Label>
                 <Textarea
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Breve descrição da turma..."
+                  id="observacoes"
+                  value={formData.observacoes}
+                  onChange={(e) => setFormData({ ...formData, observacoes: e.target.value })}
+                  placeholder="Informações adicionais..."
                   rows={3}
                 />
               </div>
 
-              <Button onClick={handleSave} className="w-full">
-                {editingClass ? "Atualizar" : "Criar"} Turma
+              {/* Botão Salvar */}
+              <Button onClick={handleSave} className="w-full" disabled={loading}>
+                {loading ? 'Salvando...' : (editingClass ? "Atualizar" : "Criar")} Turma
               </Button>
             </div>
           </DialogContent>
         </Dialog>
       </div>
 
+      {/* Cards de Estatísticas */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardContent className="p-4">
             <div className="text-center">
               <h3 className="text-lg font-semibold">Turmas Ativas</h3>
-              <p className="text-2xl font-bold text-success">
+              <p className="text-2xl font-bold text-green-600">
                 {classes.filter(c => c.status === "ativo").length}
               </p>
             </div>
@@ -383,8 +481,8 @@ export function GerenciarTurmas() {
           <CardContent className="p-4">
             <div className="text-center">
               <h3 className="text-lg font-semibold">Total de Estudantes</h3>
-              <p className="text-2xl font-bold text-primary">
-                {classes.reduce((acc, c) => acc + c.currentStudents, 0)}
+              <p className="text-2xl font-bold text-blue-600">
+                {classes.reduce((acc, c) => acc + (c.students_count || 0), 0)}
               </p>
             </div>
           </CardContent>
@@ -393,21 +491,22 @@ export function GerenciarTurmas() {
           <CardContent className="p-4">
             <div className="text-center">
               <h3 className="text-lg font-semibold">Professores Ativos</h3>
-              <p className="text-2xl font-bold text-accent">
-                {new Set(classes.map(c => c.teacher)).size}
+              <p className="text-2xl font-bold text-purple-600">
+                {new Set(classes.map(c => c.teacher_name).filter(Boolean)).size}
               </p>
             </div>
           </CardContent>
         </Card>
       </div>
 
+      {/* Tabela de Turmas */}
       <Card>
         <CardHeader>
-          <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex gap-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Buscar por nome, professor ou nível..."
+                placeholder="Buscar por nome, professor ou código..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -420,10 +519,10 @@ export function GerenciarTurmas() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>Código</TableHead>
                   <TableHead>Turma</TableHead>
                   <TableHead>Professor</TableHead>
                   <TableHead>Horário</TableHead>
-                  <TableHead>Período</TableHead>
                   <TableHead>Estudantes</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Ações</TableHead>
@@ -433,55 +532,36 @@ export function GerenciarTurmas() {
                 {filteredClasses.map((cls) => (
                   <TableRow key={cls.id}>
                     <TableCell>
+                      <Badge variant="outline">{cls.codigo}</Badge>
+                    </TableCell>
+                    <TableCell>
                       <div>
-                        <p className="font-medium">{cls.name}</p>
-                        <div className="text-sm text-muted-foreground space-y-1">
-                          <div className="flex items-center gap-1">
-                            <Badge variant="outline" className="text-xs">
-                              {cls.level}
-                            </Badge>
-                            <span className="text-xs">{cls.room}</span>
-                          </div>
-                        </div>
+                        <p className="font-medium">{cls.name || cls.nome}</p>
+                        <p className="text-sm text-muted-foreground">{cls.disciplina}</p>
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <User className="h-3 w-3" />
-                        {cls.teacher}
+                        {cls.teacher_name || 'Sem professor'}
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1 text-sm">
-                        <Clock className="h-3 w-3" />
-                        {cls.schedule}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1 text-sm">
-                        <Calendar className="h-3 w-3" />
-                        <div>
-                          <div>{new Date(cls.startDate).toLocaleDateString("pt-BR")}</div>
-                          <div className="text-xs text-muted-foreground">
-                            até {new Date(cls.endDate).toLocaleDateString("pt-BR")}
-                          </div>
+                      <div className="text-sm">
+                        <div className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {cls.horario_inicio?.substring(0, 5)} - {cls.horario_fim?.substring(0, 5)}
                         </div>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className={`font-medium ${getOccupancyColor(cls.currentStudents, cls.maxStudents)}`}>
-                        {cls.currentStudents}/{cls.maxStudents}
-                      </div>
-                      <div className="w-full bg-muted rounded-full h-1.5 mt-1">
-                        <div
-                          className="bg-current h-1.5 rounded-full transition-all"
-                          style={{ width: `${(cls.currentStudents / cls.maxStudents) * 100}%` }}
-                        />
+                      <div className={`font-medium ${getOccupancyColor(cls.students_count || 0, cls.max_students || cls.capacidade_maxima || 30)}`}>
+                        {cls.students_count || 0}/{cls.max_students || cls.capacidade_maxima || 30}
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge className={getStatusBadge(cls.status)}>
-                        {cls.status}
+                      <Badge className={getStatusBadge(cls.status || 'ativo')}>
+                        {cls.status || 'ativo'}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -497,7 +577,7 @@ export function GerenciarTurmas() {
                           variant="outline"
                           size="sm"
                           onClick={() => handleDelete(cls.id)}
-                          className="text-destructive hover:text-destructive"
+                          className="text-red-600 hover:text-red-700"
                         >
                           <Trash2 className="h-3 w-3" />
                         </Button>

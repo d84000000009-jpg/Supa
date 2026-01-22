@@ -1,91 +1,80 @@
-// src/components/AdminDashboard.tsx (Atualizado com Modal de Perfil do Estudante)
-import { useState } from "react";
+// src/components/AdminDashboard.tsx - CÓDIGO COMPLETO PARTE 1/2
+import { useState, useEffect } from "react";
 import { useAuthStore } from "@/store/authStore";
+import studentService, { Student as APIStudent } from "@/services/studentService";
+import classService, { Class as APIClass } from "@/services/classService";
+import teacherService, { Teacher, CreateTeacherData } from "@/services/teacherService";
+import courseService, { Course as APICourse } from "@/services/courseService";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { TeacherProfileModal } from "./shared/TeacherProfileModal";
-import { StudentProfileModal } from "./shared/StudentProfileModal";
-
-
+import { RegistrationStudentModal } from "./shared/reusable/RegistrationStudentModal";
 import { Input } from "@/components/ui/input";
-import { 
-  Users, 
-  BookOpen, 
-  DollarSign, 
-  Settings,
-  UserPlus,
-  GraduationCap,
-  LogOut,
-  Shield,
-  BarChart3,
-  AlertTriangle,
-  CheckCircle,
-  TrendingUp,
-  TrendingDown,
-  Edit,
-  Search,
-  CreditCard,
-  Receipt,
-  Calendar,
-  Eye,
-  Trash2,
-  Mail,
-  Phone,
-  X
+import {
+  Users, BookOpen, DollarSign, Settings, UserPlus, GraduationCap,
+  LogOut, Shield, BarChart3, AlertTriangle, CheckCircle, TrendingUp,
+  Search, Receipt, Eye, Trash2, Mail, Phone, X, Menu, ChevronLeft, 
+  ChevronRight, Home, FileText 
 } from "lucide-react";
 
 // Import dos componentes compartilhados
 import { ClassList } from "./shared/ClassList";
 import { StudentList } from "./shared/StudentList";
-import { ClassModal } from "./shared/ClassModal";
+import { TeacherList } from "./shared/TeacherList";
+import { PaymentList } from "./shared/PaymentList";
+import { ClassModal } from "./shared/CreateClassModal";
 import { StudentModal } from "./shared/StudentModal";
 import { CreateStudentModal } from "./shared/CreateStudentModal";
 import { CreateTeacherModal } from "./shared/CreateTeacherModal";
+import { SelectStudentModal } from "./shared/SelectStudentModal";
 import { ReportsModal } from "./shared/ReportsModal";
 import { PaymentManagementModal } from "./shared/PaymentManagementModal";
 import { GeneralSettingsModal } from "./shared/GeneralSettingsModal";
+import { TeacherProfileModal } from "./shared/TeacherProfileModal";
+import { StudentProfileModal } from "./shared/StudentProfileModal";
+// ✅ CORRETO - Default Import
+import CreateCourseModal from '@/components/shared/superadmin/CreateCourseModal';
+import { CourseList } from "./shared/superadmin/CourseList";
+import { RegistrationList, Registration } from "./shared/reusable/RegistrationList";
 
-
-// Import dos hooks de dados
-import { useClassData, useStudentData, useUserData } from "../hooks/useData";
-import { usePaymentData } from "../hooks/usePaymentData";
-import { Class, Student, Permission, PaymentMethod, User } from "../types";
-import { useSettingsData } from "@/hooks/UseSettingsData";
+// Types
+// Types
+import { Class as ClassType, Student as StudentType, Permission, PaymentMethod, User } from "../types";
 
 interface AdminDashboardProps {
   onLogout?: () => void;
 }
 
 export function AdminDashboard({ onLogout }: AdminDashboardProps) {
+
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
-  const displayName = user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.username : 'Admin';
-  const adminId = user?.id ?? 0;
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const checkAuth = useAuthStore((s) => s.checkAuth);
+  const displayName = user ? user.nome : 'Admin';
 
-  // Hooks de dados
-  const { classes, addClass, updateClass, deleteClass } = useClassData();
-  const { students, addStudent, deleteStudent, getStudentsByClass, updateStudent } = useStudentData();
-  const { users } = useUserData();
-  const { 
-    payments, 
-    getStudentPaymentInfo, 
-    getPaymentSummary, 
-    recordPayment, 
-    updatePayment,
-    markAsOverdue 
-  } = usePaymentData();
+  // ✅ Estados de navegação
+const [activeView, setActiveView] = useState<'dashboard' | 'students' | 'teachers' | 'classes' | 'courses' | 'payments' | 'registrations'>('dashboard');  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
+  // ✅ Estados de dados REAIS
+  const [students, setStudents] = useState<Student[]>([]);
+  const [classes, setClasses] = useState<Class[]>([]);
+  const [teacherStats, setTeacherStats] = useState<any[]>([]);
+  const [payments, setPayments] = useState<any[]>([]);
+  const [settings, setSettings] = useState<any>(null);
+  const [courses, setCourses] = useState<APICourse[]>([]);
+  const [registrations, setRegistrations] = useState<Registration[]>([]);
+const [isLoadingRegistrations, setIsLoadingRegistrations] = useState(false);
 
-  const { 
-  settings, 
-  saveSettings, 
-  resetSettings, 
-  isLoading: settingsLoading 
-} = useSettingsData();
+  // Estados de loading
+  const [isLoadingTeachers, setIsLoadingTeachers] = useState(false);
+  const [isLoadingStudents, setIsLoadingStudents] = useState(false);
+  const [isLoadingClasses, setIsLoadingClasses] = useState(false);
+  const [isLoadingCourses, setIsLoadingCourses] = useState(false);
 
-  // Estados para controlar os modais existentes
+  // Estados de modais
   const [studentModal, setStudentModal] = useState({
     isOpen: false,
     className: "",
@@ -99,110 +88,251 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     isCreating: false
   });
 
-  // Estados para os novos modais
   const [createStudentModal, setCreateStudentModal] = useState({
     isOpen: false,
     preSelectedClassId: 0,
     preSelectedClassName: ""
   });
+
+  const [selectStudentModal, setSelectStudentModal] = useState({
+    isOpen: false,
+    turmaId: 0,
+    cursoId: ''
+  });
+
   const [createTeacherModal, setCreateTeacherModal] = useState(false);
   const [reportsModal, setReportsModal] = useState(false);
+  const [generalSettingsModal, setGeneralSettingsModal] = useState(false);
+
+  const [createCourseModal, setCreateCourseModal] = useState({
+    isOpen: false,
+    courseData: null as APICourse | null,
+    isEditing: false
+  });
+
+  const [registrationModal, setRegistrationModal] = useState({
+  isOpen: false,
+  registrationData: null as Registration | null,
+  isEditing: false
+});
+
   const [paymentModal, setPaymentModal] = useState({
     isOpen: false,
     studentId: 0
   });
 
-  // Estados para o modal de perfil do docente
   const [selectedTeacher, setSelectedTeacher] = useState<any | null>(null);
   const [isTeacherProfileModalOpen, setIsTeacherProfileModalOpen] = useState(false);
-
-  // Estados para o modal de perfil do estudante
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [isStudentProfileModalOpen, setIsStudentProfileModalOpen] = useState(false);
 
-  // Estados para filtros e pesquisa
+  // Estados para filtros
   const [paymentSearch, setPaymentSearch] = useState('');
   const [paymentFilter, setPaymentFilter] = useState('all');
 
-  // Dados específicos do admin
-  const teachers = users.filter(u => u.role === 'teacher');
-  const paymentSummary = getPaymentSummary();
-  
+  // Menu items para sidebar
+const menuItems = [
+  { id: 'dashboard', label: 'Dashboard', icon: Home },
+  { id: 'students', label: 'Estudantes', icon: GraduationCap },
+    { id: 'registrations', label: 'Matrículas', icon: FileText }, // 🆕 NOVO
+  { id: 'teachers', label: 'Docentes', icon: Users },
+  { id: 'classes', label: 'Turmas', icon: BookOpen },
+  { id: 'courses', label: 'Cursos', icon: BookOpen },
+  { id: 'payments', label: 'Pagamentos', icon: DollarSign },
+];
 
-  //estado de configracoes
-  const [generalSettingsModal, setGeneralSettingsModal] = useState(false);
-  //
-  const handleSaveSettings = async (newSettings: any) => {
-  try {
-    const success = await saveSettings(newSettings);
-    if (success) {
-      console.log("Configurações salvas com sucesso!");
-      // Aqui você pode adicionar um toast de sucesso se tiver
+  // ✅ Verificar autenticação ao montar
+  useEffect(() => {
+    console.log('🔍 AdminDashboard montado - verificando autenticação...');
+    checkAuth();
+  }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      console.log('❌ Usuário não autenticado, redirecionando...');
+      window.location.href = '/login';
     }
-  } catch (error) {
-    console.error("Erro ao salvar configurações:", error);
-    // Aqui você pode adicionar um toast de erro se tiver
+  }, [isAuthenticated]);
+
+  // ✅ Carregar dados da API
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const loadAllData = async () => {
+  try {
+    // 1. Carregar cursos PRIMEIRO
+    await loadCourses();
+    
+    // 2. Carregar turmas (dependem de cursos)
+    await loadClasses();
+    
+    // 3. Carregar professores
+    setIsLoadingTeachers(true);
+    const teachers = await teacherService.getAll();
+    const mappedTeachers = teachers.map((t: Teacher) => ({
+      id: t.id,
+      name: t.nome,
+      email: t.email,
+      phone: t.telefone || '',
+      classes: 0,
+      students: 0,
+      status: t.status === 'ativo' ? 'active' : 'inactive',
+      specialization: t.especialidade || '',
+      contractType: t.tipo_contrato === 'tempo_integral' ? 'full-time' :
+        t.tipo_contrato === 'meio_periodo' ? 'part-time' :
+          t.tipo_contrato === 'freelancer' ? 'freelancer' : 'substitute',
+      experience: t.observacoes || '',
+      qualifications: t.observacoes || '',
+      salary: t.salario || 0
+    }));
+    setTeacherStats(mappedTeachers);
+
+
+    // 4. Carregar estudantes (dependem de turmas já carregadas)
+// 4. Carregar estudantes (dependem de turmas já carregadas)
+// 4. Carregar estudantes (dependem de turmas já carregadas)
+setIsLoadingStudents(true);
+const apiStudents = await studentService.getAll();
+
+console.log('📚 Estudantes carregados da API:', apiStudents);
+console.log('📚 TOTAL DE ESTUDANTES:', apiStudents.length);
+console.log('📚 PRIMEIRO ESTUDANTE (estrutura):', apiStudents[0]);
+
+const mappedStudents = apiStudents.map((student: APIStudent) => {
+  const studentClass = classes.find(c => c.curso === student.curso_id);
+  
+  return {
+    id: student.id,
+    name: student.name || '',                    // ✅ API retorna 'name'
+    email: student.email || '',
+    phone: student.phone || '',                  // ✅ API retorna 'phone'
+    className: student.curso || 'Sem curso',
+    classId: studentClass?.id || 0,
+    enrollmentDate: student.birth_date || new Date().toISOString().split('T')[0], // ✅ API retorna 'birth_date'
+    status: student.status === 'ativo' ? 'active' : 'inactive',
+    address: student.address || '',              // ✅ API retorna 'address'
+    birthDate: student.birth_date || '',         // ✅ API retorna 'birth_date'
+    level: '',
+    parentName: '',
+    parentPhone: '',
+    emergencyContact: student.emergency_contact_1 || '', // ✅ API retorna 'emergency_contact_1'
+    emergencyPhone: student.emergency_contact_2 || '',   // ✅ API retorna 'emergency_contact_2'
+    notes: student.notes || ''                   // ✅ API retorna 'notes'
+  };
+});
+
+setStudents(mappedStudents);
+console.log('✅ Estudantes mapeados:', mappedStudents.length);
+    
+  } catch (error: any) {
+    console.error("❌ Erro ao carregar dados:", error);
+    toast.error("Erro ao carregar dados");
+  } finally {
+    setIsLoadingTeachers(false);
+    setIsLoadingStudents(false);
   }
 };
 
-  const [teacherStats, setTeacherStats] = useState([
-    { 
-      id: 1, 
-      name: "Prof. Maria Santos", 
-      email: "maria.santos@m007.com", 
-      classes: 3, 
-      students: 45, 
-      status: "active" as const,
-      phone: "+258 84 123 4567",
-      specialization: "Business English, IELTS",
-      contractType: "full-time",
-      experience: "5 anos de experiência em ensino de inglês empresarial",
-      qualifications: "Licenciatura em Letras - Inglês, Certificado TEFL",
-      salary: 25000
-    },
-    { 
-      id: 2, 
-      name: "Prof. João Pedro", 
-      email: "joao.pedro@m007.com", 
-      classes: 2, 
-      students: 28, 
-      status: "active" as const,
-      phone: "+258 84 987 6543",
-      specialization: "Conversation, Grammar",
-      contractType: "part-time",
-      experience: "3 anos focado em conversação",
-      qualifications: "Licenciatura em Inglês, Cambridge Certificate",
-      salary: 15000
-    },
-    { 
-      id: 3, 
-      name: "Prof. Ana Silva", 
-      email: "ana.silva@m007.com", 
-      classes: 4, 
-      students: 52, 
-      status: "active" as const,
-      phone: "+258 84 555 7890",
-      specialization: "Advanced Grammar, Academic English",
-      contractType: "full-time",
-      experience: "8 anos de experiência acadêmica",
-      qualifications: "Mestrado em Linguística Aplicada, Certificado CELTA",
-      salary: 30000
-    },
-    { 
-      id: 4, 
-      name: "Prof. Carlos Lima", 
-      email: "carlos.lima@m007.com", 
-      classes: 1, 
-      students: 15, 
-      status: "inactive" as const,
-      phone: "+258 84 111 2233",
-      specialization: "General English",
-      contractType: "freelance",
-      experience: "2 anos de ensino geral",
-      qualifications: "Licenciatura em Letras",
-      salary: 8000
-    },
-  ]);
+loadAllData();
+  }, [isAuthenticated]);
+
+  // ✅ Funções auxiliares para manipular dados localmente
+  const addStudent = (student: Omit<Student, 'id'> | Student) => {
+    if ('id' in student) {
+      setStudents(prev => [...prev, student]);
+    } else {
+      setStudents(prev => [...prev, { ...student, id: Date.now() }]);
+    }
+  };
+
+  const updateStudent = (id: number, data: Partial<Student>) => {
+    setStudents(prev => prev.map(s => s.id === id ? { ...s, ...data } : s));
+  };
+
+  const deleteStudent = (id: number) => {
+    setStudents(prev => prev.filter(s => s.id !== id));
+  };
+
+  const getStudentsByClass = (classId: number) => {
+    return students.filter(s => s.classId === classId);
+  };
+
+  const addClass = (classData: Omit<Class, 'id'>) => {
+    setClasses(prev => [...prev, { ...classData, id: Date.now() }]);
+  };
+
+  const updateClass = (id: number, data: Partial<Class>) => {
+    setClasses(prev => prev.map(c => c.id === id ? { ...c, ...data } : c));
+  };
+
+  const deleteClass = (id: number) => {
+    setClasses(prev => prev.filter(c => c.id !== id));
+  };
+
+ // CONTINUAÇÃO DA PARTE 1/2...
+
+  // ✅ Funções de pagamento
+  const getStudentPaymentInfo = (studentId: number, name: string, className: string) => {
+    return {
+      studentId,
+      studentName: name,
+      className,
+      monthlyFee: 2500,
+      totalPaid: 0,
+      currentBalance: 0,
+      overduePayments: [],
+      lastPaymentDate: null
+    };
+  };
+
+  const getPaymentSummary = () => {
+    return {
+      totalRevenue: 0,
+      totalPending: 0,
+      totalOverdue: 0,
+      totalAdvance: 0,
+      studentsInDebt: 0,
+      studentsWithAdvance: 0,
+      averageMonthlyRevenue: 0,
+      collectionRate: 0
+    };
+  };
+
+  const recordPayment = (studentId: number, amount: number, monthRef: string, method: PaymentMethod, desc?: string) => {
+    console.log('Registrar pagamento:', { studentId, amount, monthRef, method, desc });
+    toast.success('Pagamento registrado!');
+  };
+
+ const updatePayment = async (paymentId: number, data: any) => {
+  try {
+    // TODO: Implementar chamada à API quando disponível
+    // await paymentService.update(paymentId, data);
+    
+    setPayments(prev => prev.map(p => 
+      p.id === paymentId ? { ...p, ...data } : p
+    ));
+    
+    toast.success('Pagamento atualizado!');
+  } catch (error: any) {
+    console.error('Erro ao atualizar pagamento:', error);
+    toast.error('Erro ao atualizar pagamento');
+  }
+};  
+
+  // ✅ Funções de configurações
+  const saveSettings = async (newSettings: any) => {
+    setSettings(newSettings);
+    toast.success('Configurações salvas!');
+    return true;
+  };
+
+  const handleSaveSettings = async (newSettings: any) => {
+    try {
+      await saveSettings(newSettings);
+    } catch (error) {
+      console.error("Erro ao salvar configurações:", error);
+      toast.error("Erro ao salvar configurações");
+    }
+  };
 
   // Permissões do administrador
   const adminPermissions: Permission = {
@@ -216,6 +346,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     canSendEmails: true
   };
 
+  const paymentSummary = getPaymentSummary();
+
   // Estatísticas do dashboard
   const stats = {
     totalStudents: students.length,
@@ -227,21 +359,149 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     collectionRate: paymentSummary.collectionRate
   };
 
-  // Funções para gerenciar docentes
+  // 📥 CARREGAR TURMAS DO BANCO
+  const loadClasses = async () => {
+    try {
+      setIsLoadingClasses(true);
+      console.log('📥 Carregando turmas do banco...');
+      const data = await classService.getAll();
+      console.log('✅ Turmas carregadas:', data.length, data);
+      setClasses(data);
+    } catch (error: any) {
+      console.error('❌ Erro ao carregar turmas:', error);
+      toast.error('Erro ao carregar turmas');
+    } finally {
+      setIsLoadingClasses(false);
+    }
+  };
+
+  // 📥 CARREGAR CURSOS DO BANCO
+  const loadCourses = async () => {
+    try {
+      setIsLoadingCourses(true);
+      console.log('📥 Carregando cursos do banco...');
+      const data = await courseService.getAll();
+      console.log('✅ Cursos carregados:', data.length, data);
+      setCourses(data);
+    } catch (error: any) {
+      console.error('❌ Erro ao carregar cursos:', error);
+      toast.error('Erro ao carregar cursos');
+    } finally {
+      setIsLoadingCourses(false);
+    }
+  };
+
+  // Handlers
+
+
+
+const handleAddRegistration = () => {
+  console.log('Abrindo modal de matrícula');
+  setRegistrationModal({
+    isOpen: true,
+    registrationData: null,
+    isEditing: false
+  });
+};
+const handleViewRegistration = (registration: Registration) => {
+  console.log('Visualizando matrícula:', registration);
+  setRegistrationModal({
+    isOpen: true,
+    registrationData: registration,
+    isEditing: false
+  });
+};
+
+const handleEditRegistration = (registration: Registration) => {
+  console.log('Editando matrícula:', registration);
+  setRegistrationModal({
+    isOpen: true,
+    registrationData: registration,
+    isEditing: true
+  });
+};
+
+const handleSaveRegistration = (registrationData: Partial<Registration>) => {
+  try {
+    console.log('💾 Salvando matrícula:', registrationData);
+    
+    if (registrationModal.isEditing && registrationModal.registrationData?.id) {
+      // Editar matrícula existente
+      setRegistrations(prev => prev.map(r => 
+        r.id === registrationModal.registrationData!.id 
+          ? { ...r, ...registrationData } as Registration
+          : r
+      ));
+      toast.success('Matrícula atualizada com sucesso!');
+    } else {
+      // Criar nova matrícula
+      const newRegistration: Registration = {
+        id: Date.now(),
+        studentId: registrationData.studentId!,
+        studentName: registrationData.studentName!,
+        studentCode: registrationData.studentCode!,
+        courseId: registrationData.courseId!,
+        courseName: registrationData.courseName!,
+        classId: registrationData.classId,
+        className: registrationData.className || '',
+        period: registrationData.period!,
+        enrollmentDate: registrationData.enrollmentDate!,
+        status: registrationData.status || 'active',
+        paymentStatus: registrationData.paymentStatus || 'pending',
+        enrollmentFee: registrationData.enrollmentFee || 0,
+        monthlyFee: registrationData.monthlyFee || 0,
+        observations: registrationData.observations
+      };
+      
+      setRegistrations(prev => [...prev, newRegistration]);
+      toast.success('Matrícula realizada com sucesso!');
+    }
+    
+    setRegistrationModal({ isOpen: false, registrationData: null, isEditing: false });
+    
+  } catch (error: any) {
+    console.error('Erro ao salvar matrícula:', error);
+    toast.error('Erro ao salvar matrícula');
+  }
+};
+
+const handleDeleteRegistration = (registrationId: number) => {
+  if (confirm("Tem certeza que deseja cancelar esta matrícula?")) {
+    setRegistrations(prev => prev.filter(r => r.id !== registrationId));
+    toast.success("Matrícula cancelada com sucesso!");
+  }
+};
+
+
+
   const handleViewTeacherProfile = (teacher: any) => {
     setSelectedTeacher(teacher);
     setIsTeacherProfileModalOpen(true);
   };
 
-  const handleSaveTeacherProfile = (updatedTeacher: any) => {
-    setTeacherStats(prev => 
-      prev.map(teacher => 
-        teacher.id === updatedTeacher.id ? updatedTeacher : teacher
-      )
-    );
-    console.log("Perfil do professor atualizado:", updatedTeacher);
-    setIsTeacherProfileModalOpen(false);
-    setSelectedTeacher(null);
+  const handleSaveTeacherProfile = async (updatedTeacher: any) => {
+    try {
+      const updateData: Partial<CreateTeacherData> = {
+        nome: updatedTeacher.name,
+        email: updatedTeacher.email,
+        telefone: updatedTeacher.phone,
+        especialidade: updatedTeacher.specialization,
+        tipo_contrato: updatedTeacher.contractType === 'full-time' ? 'tempo_integral' :
+          updatedTeacher.contractType === 'part-time' ? 'meio_periodo' :
+            updatedTeacher.contractType === 'freelance' ? 'freelancer' : 'substituto',
+        salario: updatedTeacher.salary,
+        observacoes: `${updatedTeacher.qualifications}\n\n${updatedTeacher.experience}`.trim()
+      };
+
+      await teacherService.update(updatedTeacher.id, updateData);
+      setTeacherStats(prev => prev.map(t => t.id === updatedTeacher.id ? updatedTeacher : t));
+      toast.success("Perfil atualizado com sucesso!");
+      setIsTeacherProfileModalOpen(false);
+      setSelectedTeacher(null);
+    } catch (error: any) {
+      console.error("Erro ao atualizar professor:", error);
+      toast.error(error.message || "Erro ao atualizar perfil");
+    }
   };
 
   const handleCloseTeacherProfileModal = () => {
@@ -249,18 +509,31 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     setSelectedTeacher(null);
   };
 
-  // Funções para gerenciar estudantes
   const handleViewStudentProfile = (student: Student) => {
     setSelectedStudent(student);
     setIsStudentProfileModalOpen(true);
   };
 
-  const handleSaveStudentProfile = (updatedStudent: Student) => {
-    // Atualizar o estudante usando o hook
-    updateStudent(updatedStudent.id, updatedStudent);
-    console.log("Perfil do estudante atualizado:", updatedStudent);
-    setIsStudentProfileModalOpen(false);
-    setSelectedStudent(null);
+  const handleSaveStudentProfile = async (updatedStudent: Student) => {
+    try {
+      const updateData = {
+        nome: updatedStudent.name,
+        email: updatedStudent.email,
+        telefone: updatedStudent.phone,
+        data_nascimento: updatedStudent.birthDate,
+        endereco: updatedStudent.address,
+        status: updatedStudent.status === 'active' ? 'ativo' : 'inativo'
+      };
+
+      await studentService.update(updatedStudent.id, updateData);
+      updateStudent(updatedStudent.id, updatedStudent);
+      toast.success("Perfil atualizado com sucesso!");
+      setIsStudentProfileModalOpen(false);
+      setSelectedStudent(null);
+    } catch (error: any) {
+      console.error("Erro ao atualizar estudante:", error);
+      toast.error(error.message || "Erro ao atualizar perfil");
+    }
   };
 
   const handleCloseStudentProfileModal = () => {
@@ -269,20 +542,24 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   };
 
   const handleToggleTeacherStatus = (teacherId: number) => {
-    setTeacherStats(prev => prev.map(teacher => 
-      teacher.id === teacherId 
-        ? { ...teacher, status: teacher.status === "active" ? "inactive" : "active" }
-        : teacher
+    setTeacherStats(prev => prev.map(t =>
+      t.id === teacherId ? { ...t, status: t.status === "active" ? "inactive" : "active" } : t
     ));
   };
 
-  const handleDeleteTeacher = (teacherId: number) => {
-    if (confirm("Tem certeza que deseja remover este docente? Esta ação não pode ser desfeita.")) {
-      setTeacherStats(prev => prev.filter(teacher => teacher.id !== teacherId));
+  const handleDeleteTeacher = async (teacherId: number) => {
+    if (confirm("Tem certeza que deseja remover este docente?")) {
+      try {
+        await teacherService.delete(teacherId);
+        setTeacherStats(prev => prev.filter(t => t.id !== teacherId));
+        toast.success("Professor removido com sucesso!");
+      } catch (error: any) {
+        console.error("Erro ao deletar professor:", error);
+        toast.error(error.message || "Erro ao remover professor");
+      }
     }
   };
 
-  // Funções para gerenciar modais existentes
   const handleViewStudents = (classItem: Class) => {
     const classStudents = getStudentsByClass(classItem.id);
     setStudentModal({
@@ -294,43 +571,64 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   };
 
   const handleManageClass = (classItem: Class) => {
-    setClassModal({
-      isOpen: true,
-      classData: classItem,
-      isCreating: false
-    });
+    setClassModal({ isOpen: true, classData: classItem, isCreating: false });
   };
 
   const handleCreateClass = () => {
-    setClassModal({
-      isOpen: true,
-      classData: null,
-      isCreating: true
-    });
+    setClassModal({ isOpen: true, classData: null, isCreating: true });
   };
 
-  const handleDeleteClass = (classId: number) => {
-    if (confirm("Tem certeza que deseja deletar esta turma? Esta ação não pode ser desfeita.")) {
-      deleteClass(classId);
+  const handleDeleteClass = async (classId: number) => {
+    if (confirm("Tem certeza que deseja deletar esta turma?")) {
+      try {
+        console.log('🗑️ Deletando turma:', classId);
+        await classService.delete(classId);
+        toast.success("Turma deletada com sucesso!");
+        await loadClasses();
+        await loadCourses();
+      } catch (error: any) {
+        console.error('❌ Erro ao deletar:', error);
+        toast.error(error.message || "Erro ao deletar turma");
+      }
     }
   };
 
-  const handleSaveClass = (classData: Partial<Class>) => {
-    if (classModal.isCreating) {
-      addClass({
-        ...classData,
-        students: 0,
-        teacher: "A designar",
-        teacherId: 0
-      } as Omit<Class, 'id'>);
-    } else if (classModal.classData?.id) {
-      updateClass(classModal.classData.id, classData);
+  const handleSaveClass = async (classData: Partial<APIClass>) => {
+    try {
+      console.log('💾 handleSaveClass chamado:', { isCreating: classModal.isCreating, classData });
+
+      if (classModal.isCreating) {
+        console.log('📤 Criando turma via API...', classData);
+        const novaTurma = await classService.create(classData);
+        console.log('✅ Turma criada:', novaTurma);
+        toast.success("Turma criada com sucesso!");
+      } else if (classModal.classData?.id) {
+        console.log('📤 Atualizando turma via API...', classData);
+        const turmaAtualizada = await classService.update(classModal.classData.id, classData);
+        console.log('✅ Turma atualizada:', turmaAtualizada);
+        toast.success("Turma atualizada com sucesso!");
+      }
+
+      await loadClasses();
+      setClassModal({ isOpen: false, classData: null, isCreating: false });
+
+    } catch (error: any) {
+      console.error('❌ Erro ao salvar turma:', error);
+      console.error('❌ Detalhes do erro:', error.response?.data);
+      toast.error(error.message || "Erro ao salvar turma");
     }
   };
 
-  const handleDeleteStudent = (studentId: number) => {
+  const handleDeleteStudent = async (studentId: number) => {
     if (confirm("Tem certeza que deseja remover este estudante?")) {
-      deleteStudent(studentId);
+      try {
+        await studentService.delete(studentId);
+        deleteStudent(studentId);
+        toast.success("Estudante removido com sucesso!");
+      } catch (error: any) {
+        console.error("Erro ao deletar estudante:", error);
+        toast.error(error.message || "Erro ao remover estudante");
+      }
     }
   };
 
@@ -338,66 +636,145 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     console.log("Admin enviando email para todos os estudantes");
   };
 
-  // Funções para criação
-  const handleCreateStudent = (studentData: Omit<Student, 'id'>) => {
-    addStudent(studentData);
-    console.log("Novo estudante criado:", studentData);
+const handleCreateStudent = async (studentData: any) => {
+  try {
+    console.log('📤 Criando estudante:', studentData);
+    
+    // ✅ CHAMAR A API PARA CRIAR O ESTUDANTE
+    const result = await studentService.create(studentData);
+    
+    console.log('✅ Estudante criado:', result);
+    toast.success("Estudante cadastrado com sucesso!");
+    
+    // ✅ RECARREGAR A LISTA ATUALIZADA DO BANCO
+    setIsLoadingStudents(true);
+    const apiStudents = await studentService.getAll();
+    
+    // ✅ MAPEAMENTO CORRIGIDO - Campos em INGLÊS
+const mappedStudents = apiStudents.map((student: APIStudent) => {
+  const studentClass = classes.find(c => c.curso === student.curso_id);
+  
+  return {
+    id: student.id,
+    name: student.name || '',                    // ✅ API: name
+    email: student.email || '',
+    phone: student.phone || '',                  // ✅ API: phone
+    className: student.curso || 'Sem curso',
+    classId: studentClass?.id || 0,
+    enrollmentDate: student.birth_date || new Date().toISOString().split('T')[0], // ✅ API: birth_date
+    status: student.status === 'ativo' ? 'active' : 'inactive',
+    address: student.address || '',              // ✅ API: address
+    birthDate: student.birth_date || '',         // ✅ API: birth_date
+    level: '',
+    parentName: '',
+    parentPhone: '',
+    emergencyContact: student.emergency_contact_1 || '', // ✅ API: emergency_contact_1
+    emergencyPhone: student.emergency_contact_2 || '',   // ✅ API: emergency_contact_2
+    notes: student.notes || ''                   // ✅ API: notes
+  };
+});
+    
+    setStudents(mappedStudents);
+    console.log('✅ Lista de estudantes atualizada');
+    
+  } catch (error: any) {
+    console.error("❌ Erro ao criar estudante:", error);
+    toast.error(error.message || "Erro ao criar estudante");
+  } finally {
+    setIsLoadingStudents(false);
+  }
+};
+
+
+
+  const handleCreateTeacher = async (teacherData: any) => {
+    try {
+      const teachers = await teacherService.getAll();
+      const mappedTeachers = teachers.map((t: Teacher) => ({
+        id: t.id,
+        name: t.nome,
+        email: t.email,
+        phone: t.telefone || '',
+        classes: 0,
+        students: 0,
+        status: t.status === 'ativo' ? 'active' : 'inactive',
+        specialization: t.especialidade || '',
+        contractType: t.tipo_contrato === 'tempo_integral' ? 'full-time' :
+          t.tipo_contrato === 'meio_periodo' ? 'part-time' :
+            t.tipo_contrato === 'freelancer' ? 'freelancer' : 'substitute',
+        experience: t.observacoes || '',
+        qualifications: t.observacoes || '',
+        salary: t.salario || 0
+      }));
+      setTeacherStats(mappedTeachers);
+      toast.success("Professor cadastrado com sucesso!");
+    } catch (error: any) {
+      console.error("Erro ao atualizar lista de professores:", error);
+      toast.error("Erro ao atualizar lista");
+    }
   };
 
-  const handleCreateTeacher = (teacherData: Omit<User, 'id'> & { 
-    specializations: string[];
-    experience: string;
-    qualifications: string;
-    salary?: number;
-    contractType: string;
-  }) => {
-    const newTeacher = {
-      id: Date.now(),
-      name: teacherData.name,
-      email: teacherData.email,
-      classes: 0,
-      students: 0,
-      status: "active" as const,
-      phone: teacherData.phone,
-      specialization: teacherData.specializations.join(", "),
-      experience: teacherData.experience,
-      qualifications: teacherData.qualifications,
-      salary: teacherData.salary || 0,
-      contractType: teacherData.contractType
-    };
-    
-    setTeacherStats(prev => [...prev, newTeacher]);
-    console.log("Novo professor criado:", newTeacher);
+  const handleCreateCourse = async (courseData: APICourse) => {
+    try {
+      console.log('📤 Criando curso:', courseData);
+
+      if (createCourseModal.isEditing && createCourseModal.courseData?.id) {
+        await courseService.update(createCourseModal.courseData.id, courseData);
+        toast.success("Curso atualizado com sucesso!");
+      } else {
+        await courseService.create(courseData);
+        toast.success("Curso cadastrado com sucesso!");
+      }
+
+      await loadCourses();
+    } catch (error: any) {
+      console.error('❌ Erro ao salvar curso:', error);
+      toast.error(error.message || "Erro ao salvar curso");
+      throw error;
+    }
+  };
+
+  const handleEditCourse = (course: APICourse) => {
+    setCreateCourseModal({
+      isOpen: true,
+      courseData: course,
+      isEditing: true
+    });
+  };
+
+  const handleDeleteCourse = async (courseId: number) => {
+    if (confirm("Tem certeza que deseja desativar este curso?")) {
+      try {
+        console.log('🗑️ Deletando curso:', courseId);
+        await courseService.delete(courseId);
+        toast.success("Curso desativado com sucesso!");
+        await loadCourses();
+      } catch (error: any) {
+        console.error('❌ Erro ao deletar curso:', error);
+        toast.error(error.message || "Erro ao deletar curso");
+      }
+    }
   };
 
   const handleGenerateReport = (reportType: string, filters: any) => {
     console.log("Gerando relatório:", reportType, "com filtros:", filters);
   };
 
-  // Adicionar estudante a uma turma específica
   const handleAddStudentToClass = (classItem: Class) => {
-    setCreateStudentModal({
+    console.log('🎯 Abrindo SelectStudentModal para turma:', classItem);
+    setSelectStudentModal({
       isOpen: true,
-      preSelectedClassId: classItem.id,
-      preSelectedClassName: classItem.name
+      turmaId: classItem.id || 0,
+      cursoId: classItem.curso || ''
     });
   };
 
-  // Abrir modal geral de criação de estudante
   const handleOpenCreateStudentModal = () => {
-    setCreateStudentModal({
-      isOpen: true,
-      preSelectedClassId: 0,
-      preSelectedClassName: ""
-    });
+    setCreateStudentModal({ isOpen: true, preSelectedClassId: 0, preSelectedClassName: "" });
   };
 
-  // Funções de pagamento
   const handleOpenPaymentModal = (studentId: number) => {
-    setPaymentModal({
-      isOpen: true,
-      studentId
-    });
+    setPaymentModal({ isOpen: true, studentId });
   };
 
   const handleRecordPayment = (amount: number, method: PaymentMethod, monthReference: string, description?: string) => {
@@ -405,7 +782,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   };
 
   const handleValidatePayment = (studentId: number, paymentId: number) => {
-    updatePayment(paymentId, { 
+    updatePayment(paymentId, {
       status: 'paid',
       paidDate: new Date().toISOString().split('T')[0]
     });
@@ -418,9 +795,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     }).format(amount);
   };
 
-  // Filtrar estudantes por pagamentos
   const getFilteredStudents = () => {
-    let filtered = students.filter(student => 
+    let filtered = students.filter(student =>
       student.name.toLowerCase().includes(paymentSearch.toLowerCase()) ||
       student.className.toLowerCase().includes(paymentSearch.toLowerCase())
     );
@@ -445,250 +821,302 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     return filtered;
   };
 
+  if (!isAuthenticated) {
+    return null;
+  }
+
+ 
   return (
-    <div className="min-h-screen bg-gradient-subtle">
-      {/* Header */}
-      <header className="bg-card border-b border-border shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 bg-gradient-primary rounded-xl flex items-center justify-center">
-                <Shield className="h-5 w-5 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold">M007 Oxford</h1>
-                <p className="text-sm text-muted-foreground">Portal Administrativo</p>
+
+  <div className="flex h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 overflow-hidden">
+    {/* ========== SIDEBAR LATERAL ========== */}
+    <aside
+      className={`${
+        isSidebarOpen ? 'w-72' : 'w-20'
+      } bg-gradient-to-b from-[#004B87] via-[#003868] to-[#002850] text-white transition-all duration-300 ease-in-out flex flex-col shadow-2xl relative z-50`}
+    >
+      {/* Logo e Header */}
+      <div className="p-6 border-b border-white/10">
+        <div className="flex items-center justify-between">
+          <div className={`flex items-center gap-3 ${!isSidebarOpen && 'justify-center'}`}>
+            <div className="relative group">
+              <div className="absolute inset-0 bg-gradient-to-r from-[#F5821F] to-[#FF9933] rounded-xl blur-md opacity-75"></div>
+              <div className="relative h-10 w-10 bg-white rounded-xl flex items-center justify-center shadow-lg p-1">
+                <img src="/image.png" alt="ISAC" className="h-full w-full object-contain" />
               </div>
             </div>
-            <div className="flex items-center gap-4">
-              <div className="text-right hidden sm:block">
-                <p className="font-medium">{displayName}</p>
-                <p className="text-sm text-muted-foreground">Super Admin</p>
+            {isSidebarOpen && (
+              <div>
+                <h1 className="text-xl font-bold bg-gradient-to-r from-[#F5821F] to-[#FF9933] bg-clip-text text-transparent">
+                  ISAC
+                </h1>
+                <p className="text-xs text-slate-300">Portal Admin</p>
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={async () => {
-                  try {
-                    await logout();
-                    if (onLogout) onLogout();
-                  } catch (e) {
-                    console.error('Logout falhou', e);
-                  }
-                }}
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* User Profile */}
+      <div className="p-4 border-b border-white/10">
+        <div className={`flex items-center gap-3 ${!isSidebarOpen && 'justify-center'}`}>
+          <div className="h-10 w-10 bg-gradient-to-br from-[#F5821F] to-[#FF9933] rounded-full flex items-center justify-center font-bold text-white shadow-md flex-shrink-0">
+            {displayName.charAt(0)}
+          </div>
+          {isSidebarOpen && (
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-sm truncate">{displayName}</p>
+              <div className="flex items-center gap-1.5 text-xs text-slate-300">
+                <Shield className="h-3 w-3" />
+                <span>Super Admin</span>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Menu Navigation */}
+      <nav className="flex-1 overflow-y-auto py-4 px-3">
+        <div className="space-y-1">
+          {menuItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = activeView === item.id;
+            
+            return (
+              <button
+                key={item.id}
+                onClick={() => setActiveView(item.id as any)}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
+                  isActive
+                    ? 'bg-gradient-to-r from-[#F5821F] to-[#FF9933] text-white shadow-lg'
+                    : 'text-slate-200 hover:bg-white/10'
+                } ${!isSidebarOpen && 'justify-center'}`}
               >
-                <LogOut className="h-5 w-5" />
-              </Button>
+                <Icon className="h-5 w-5 flex-shrink-0" />
+                {isSidebarOpen && (
+                  <span className="font-medium text-sm">{item.label}</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </nav>
+
+      {/* Bottom Actions */}
+      <div className="p-3 border-t border-white/10 space-y-2">
+        <button
+          onClick={() => setGeneralSettingsModal(true)}
+          className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-200 hover:bg-white/10 transition-colors ${
+            !isSidebarOpen && 'justify-center'
+          }`}
+        >
+          <Settings className="h-5 w-5" />
+          {isSidebarOpen && <span className="text-sm">Configurações</span>}
+        </button>
+        
+        <button
+          onClick={async () => {
+            try {
+              await logout();
+              if (onLogout) onLogout();
+            } catch (e) {
+              console.error('Logout falhou', e);
+            }
+          }}
+          className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-red-300 hover:bg-red-500/20 transition-colors ${
+            !isSidebarOpen && 'justify-center'
+          }`}
+        >
+          <LogOut className="h-5 w-5" />
+          {isSidebarOpen && <span className="text-sm">Sair</span>}
+        </button>
+      </div>
+
+      {/* Toggle Button */}
+      <button
+        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+        className="absolute -right-3 top-24 bg-gradient-to-r from-[#F5821F] to-[#FF9933] text-white rounded-full p-1.5 shadow-lg hover:shadow-xl transition-all duration-200"
+      >
+        {isSidebarOpen ? (
+          <ChevronLeft className="h-4 w-4" />
+        ) : (
+          <ChevronRight className="h-4 w-4" />
+        )}
+      </button>
+    </aside>
+
+    {/* ========== MAIN CONTENT ========== */}
+    <main className="flex-1 overflow-y-auto">
+      {/* Top Bar */}
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
+        <div className="px-8 py-4 flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-slate-800">
+              {menuItems.find(m => m.id === activeView)?.label || 'Dashboard'}
+            </h2>
+            <p className="text-sm text-slate-500 mt-0.5">
+              Gerencie estudantes, docentes, turmas e cursos da instituição
+            </p>
+          </div>
+          
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 rounded-full border border-emerald-200">
+              <div className="h-2 w-2 bg-emerald-500 rounded-full animate-pulse"></div>
+              <span className="text-xs text-emerald-700 font-medium">Online</span>
             </div>
           </div>
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Welcome Section */}
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold mb-2">Painel Administrativo</h2>
-          <p className="text-muted-foreground">Gerencie estudantes, docentes, turmas e pagamentos da instituição</p>
-        </div>
-
-        <Tabs defaultValue="dashboard" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3 lg:grid-cols-6 h-auto p-1">
-            <TabsTrigger value="dashboard" className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4" />
-              <span className="hidden sm:inline">Dashboard</span>
-            </TabsTrigger>
-            <TabsTrigger value="students" className="flex items-center gap-2">
-              <GraduationCap className="h-4 w-4" />
-              <span className="hidden sm:inline">Estudantes</span>
-            </TabsTrigger>
-            <TabsTrigger value="teachers" className="flex items-center gap-2">
-              <Users className="h-4 w-4" />
-              <span className="hidden sm:inline">Docentes</span>
-            </TabsTrigger>
-            <TabsTrigger value="classes" className="flex items-center gap-2">
-              <BookOpen className="h-4 w-4" />
-              <span className="hidden sm:inline">Turmas</span>
-            </TabsTrigger>
-            <TabsTrigger value="payments" className="flex items-center gap-2">
-              <DollarSign className="h-4 w-4" />
-              <span className="hidden sm:inline">Pagamentos</span>
-            </TabsTrigger>
-            <TabsTrigger value="settings" className="flex items-center gap-2">
-              <Settings className="h-4 w-4" />
-              <span className="hidden sm:inline">Configurações</span>
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="dashboard" className="space-y-6">
+      {/* Dashboard Content */}
+      <div className="p-8">
+        <Tabs value={activeView} onValueChange={(v) => setActiveView(v as any)} className="space-y-6">
+          <TabsContent value="dashboard" className="space-y-6 mt-0">
+            {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <Card className="shadow-elegant">
+              <Card className="border-l-4 border-l-blue-500 shadow-lg hover:shadow-xl transition-shadow">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <GraduationCap className="h-5 w-5 text-primary" />
+                  <CardTitle className="text-sm flex items-center gap-2 text-slate-600">
+                    <GraduationCap className="h-4 w-4 text-blue-500" />
                     Estudantes
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-primary">{stats.totalStudents}</div>
-                  <p className="text-sm text-muted-foreground">Total matriculados</p>
+                  <div className="text-3xl font-bold text-blue-600">{stats.totalStudents}</div>
+                  <p className="text-xs text-slate-500 mt-1">Total matriculados</p>
                 </CardContent>
               </Card>
 
-              <Card className="shadow-elegant">
+              <Card className="border-l-4 border-l-purple-500 shadow-lg hover:shadow-xl transition-shadow">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Users className="h-5 w-5 text-blue-600" />
+                  <CardTitle className="text-sm flex items-center gap-2 text-slate-600">
+                    <Users className="h-4 w-4 text-purple-500" />
                     Docentes
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-blue-600">{stats.totalTeachers}</div>
-                  <p className="text-sm text-muted-foreground">Total de professores</p>
+                  <div className="text-3xl font-bold text-purple-600">{stats.totalTeachers}</div>
+                  <p className="text-xs text-slate-500 mt-1">Total de professores</p>
                 </CardContent>
               </Card>
 
-              <Card className="shadow-elegant">
+              <Card className="border-l-4 border-l-green-500 shadow-lg hover:shadow-xl transition-shadow">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <DollarSign className="h-5 w-5 text-green-600" />
+                  <CardTitle className="text-sm flex items-center gap-2 text-slate-600">
+                    <DollarSign className="h-4 w-4 text-green-500" />
                     Receita Total
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-3xl font-bold text-green-600">{formatCurrency(stats.totalRevenue)}</div>
-                  <p className="text-sm text-muted-foreground">Arrecadado</p>
+                  <p className="text-xs text-slate-500 mt-1">Arrecadado</p>
                 </CardContent>
               </Card>
 
-              <Card className="shadow-elegant">
+              <Card className="border-l-4 border-l-red-500 shadow-lg hover:shadow-xl transition-shadow">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <AlertTriangle className="h-5 w-5 text-red-600" />
+                  <CardTitle className="text-sm flex items-center gap-2 text-slate-600">
+                    <AlertTriangle className="h-4 w-4 text-red-500" />
                     Em Débito
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-3xl font-bold text-red-600">{stats.studentsInDebt}</div>
-                  <p className="text-sm text-muted-foreground">Estudantes devendo</p>
+                  <p className="text-xs text-slate-500 mt-1">Estudantes devendo</p>
                 </CardContent>
               </Card>
             </div>
 
-            {/* Cards de Resumo Financeiro */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <Card className="shadow-elegant">
+            {/* Quick Actions */}
+            <Card className="shadow-lg">
+              <CardHeader>
+                <CardTitle className="text-lg">Ações Rápidas</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <Button variant="outline" className="w-full justify-start h-12 border-2 hover:border-blue-500 hover:bg-blue-50" onClick={handleOpenCreateStudentModal}>
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    Cadastrar Estudante
+                  </Button>
+                  <Button variant="outline" className="w-full justify-start h-12 border-2 hover:border-purple-500 hover:bg-purple-50" onClick={() => setCreateTeacherModal(true)}>
+                    <Users className="h-4 w-4 mr-2" />
+                    Adicionar Docente
+                  </Button>
+                  <Button variant="outline" className="w-full justify-start h-12 border-2 hover:border-orange-500 hover:bg-orange-50" onClick={handleCreateClass}>
+                    <BookOpen className="h-4 w-4 mr-2" />
+                    Criar Turma
+                  </Button>
+                  <Button variant="outline" className="w-full justify-start h-12 border-2 hover:border-green-500 hover:bg-green-50" onClick={() => setReportsModal(true)}>
+                    <BarChart3 className="h-4 w-4 mr-2" />
+                    Gerar Relatório
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Financial Summary */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card className="shadow-lg">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <DollarSign className="h-5 w-5" />
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <DollarSign className="h-5 w-5 text-green-600" />
                     Resumo Financeiro
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Receita Total</span>
-                      <span className="font-semibold text-green-600">{formatCurrency(paymentSummary.totalRevenue)}</span>
+                    <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
+                      <span className="text-sm font-medium text-slate-700">Receita Total</span>
+                      <span className="font-bold text-green-600">{formatCurrency(paymentSummary.totalRevenue)}</span>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Pendente</span>
-                      <span className="font-semibold text-yellow-600">{formatCurrency(paymentSummary.totalPending)}</span>
+                    <div className="flex justify-between items-center p-3 bg-yellow-50 rounded-lg">
+                      <span className="text-sm font-medium text-slate-700">Pendente</span>
+                      <span className="font-bold text-yellow-600">{formatCurrency(paymentSummary.totalPending)}</span>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Em Atraso</span>
-                      <span className="font-semibold text-red-600">{formatCurrency(paymentSummary.totalOverdue)}</span>
+                    <div className="flex justify-between items-center p-3 bg-red-50 rounded-lg">
+                      <span className="text-sm font-medium text-slate-700">Em Atraso</span>
+                      <span className="font-bold text-red-600">{formatCurrency(paymentSummary.totalOverdue)}</span>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Antecipado</span>
-                      <span className="font-semibold text-blue-600">{formatCurrency(paymentSummary.totalAdvance)}</span>
+                    <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
+                      <span className="text-sm font-medium text-slate-700">Antecipado</span>
+                      <span className="font-bold text-blue-600">{formatCurrency(paymentSummary.totalAdvance)}</span>
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="shadow-elegant">
+              <Card className="shadow-lg">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5" />
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-blue-600" />
                     Estatísticas
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Receita Média Mensal</span>
-                      <span className="font-semibold text-primary">{formatCurrency(paymentSummary.averageMonthlyRevenue)}</span>
+                    <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
+                      <span className="text-sm font-medium text-slate-700">Receita Média Mensal</span>
+                      <span className="font-bold text-blue-600">{formatCurrency(paymentSummary.averageMonthlyRevenue)}</span>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Estudantes com Crédito</span>
-                      <span className="font-semibold text-blue-600">{paymentSummary.studentsWithAdvance}</span>
+                    <div className="flex justify-between items-center p-3 bg-purple-50 rounded-lg">
+                      <span className="text-sm font-medium text-slate-700">Estudantes com Crédito</span>
+                      <span className="font-bold text-purple-600">{paymentSummary.studentsWithAdvance}</span>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Estudantes em Débito</span>
-                      <span className="font-semibold text-red-600">{paymentSummary.studentsInDebt}</span>
+                    <div className="flex justify-between items-center p-3 bg-red-50 rounded-lg">
+                      <span className="text-sm font-medium text-slate-700">Estudantes em Débito</span>
+                      <span className="font-bold text-red-600">{paymentSummary.studentsInDebt}</span>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Taxa de Cobrança</span>
-                      <span className="font-semibold text-green-600">{paymentSummary.collectionRate.toFixed(1)}%</span>
+                    <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
+                      <span className="text-sm font-medium text-slate-700">Taxa de Cobrança</span>
+                      <span className="font-bold text-green-600">{paymentSummary.collectionRate.toFixed(1)}%</span>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="shadow-elegant">
-                <CardHeader>
-                  <CardTitle>Ações Rápidas</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <Button 
-                      variant="outline" 
-                      className="w-full justify-start"
-                      onClick={handleOpenCreateStudentModal}
-                    >
-                      <UserPlus className="h-4 w-4 mr-2" />
-                      Cadastrar Estudante
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      className="w-full justify-start"
-                      onClick={() => setCreateTeacherModal(true)}
-                    >
-                      <Users className="h-4 w-4 mr-2" />
-                      Adicionar Docente
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      className="w-full justify-start"
-                      onClick={handleCreateClass}
-                    >
-                      <BookOpen className="h-4 w-4 mr-2" />
-                      Criar Turma
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      className="w-full justify-start"
-                      onClick={() => setReportsModal(true)}
-                    >
-                      <BarChart3 className="h-4 w-4 mr-2" />
-                      Gerar Relatório
-                    </Button>
                   </div>
                 </CardContent>
               </Card>
             </div>
           </TabsContent>
 
-          <TabsContent value="students" className="space-y-6">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold">Gerenciar Estudantes</h3>
-              <Button 
-                variant="oxford"
-                onClick={handleOpenCreateStudentModal}
-              >
-                <UserPlus className="h-4 w-4 mr-2" />
-                Novo Estudante
-              </Button>
-            </div>
+          <TabsContent value="students" className="mt-0">
             <StudentList
               students={students}
               permissions={adminPermissions}
@@ -701,166 +1129,19 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
             />
           </TabsContent>
 
-          <TabsContent value="teachers" className="space-y-6">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold">Gerenciar Docentes</h3>
-              <Button 
-                variant="oxford"
-                onClick={() => setCreateTeacherModal(true)}
-              >
-                <UserPlus className="h-4 w-4 mr-2" />
-                Novo Docente
-              </Button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {teacherStats.map((teacher) => (
-                <Card key={teacher.id} className="shadow-elegant hover:shadow-lg transition-all duration-200">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className="h-12 w-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
-                          <Users className="h-6 w-6 text-white" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <CardTitle className="text-lg leading-tight truncate">{teacher.name}</CardTitle>
-                          <CardDescription className="flex items-center gap-1 mt-1">
-                            <Mail className="h-3 w-3 flex-shrink-0" />
-                            <span className="truncate">{teacher.email}</span>
-                          </CardDescription>
-                          {teacher.specialization && (
-                            <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                              <GraduationCap className="h-3 w-3 flex-shrink-0" />
-                              <span className="truncate">{teacher.specialization}</span>
-                            </p>
-                          )}
-                          {teacher.phone && (
-                            <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                              <Phone className="h-3 w-3 flex-shrink-0" />
-                              <span className="truncate">{teacher.phone}</span>
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex gap-1 ml-2">
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => handleViewTeacherProfile(teacher)}
-                          className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 p-1"
-                          title="Ver Perfil Completo"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => handleDeleteTeacher(teacher.id)}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50 p-1"
-                          title="Remover Docente"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  
-                  <CardContent className="pt-0">
-                    <div className="space-y-3">
-                      {/* Badge de Status */}
-                      <div className="flex items-center justify-between">
-                        <Badge 
-                          variant={teacher.status === "active" ? "default" : "destructive"}
-                          className="flex items-center gap-1"
-                        >
-                          {teacher.status === "active" ? (
-                            <CheckCircle className="h-3 w-3" />
-                          ) : (
-                            <X className="h-3 w-3" />
-                          )}
-                          {teacher.status === "active" ? "Ativo" : "Inativo"}
-                        </Badge>
-                        {teacher.contractType && (
-                          <Badge variant="outline" className="text-xs">
-                            {teacher.contractType === 'full-time' ? 'Integral' : 
-                             teacher.contractType === 'part-time' ? 'Parcial' : 
-                             teacher.contractType === 'freelance' ? 'Freelancer' : 'Substituto'}
-                          </Badge>
-                        )}
-                      </div>
-
-                      {/* Estatísticas em cards pequenos */}
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="text-center p-3 bg-blue-50 rounded-md">
-                          <div className="text-lg font-bold text-blue-600">{teacher.classes}</div>
-                          <div className="text-xs text-muted-foreground">Turmas</div>
-                        </div>
-                        <div className="text-center p-3 bg-green-50 rounded-md">
-                          <div className="text-lg font-bold text-green-600">{teacher.students}</div>
-                          <div className="text-xs text-muted-foreground">Estudantes</div>
-                        </div>
-                      </div>
-
-                      {/* Salário se disponível */}
-                      {teacher.salary && teacher.salary > 0 && (
-                        <div className="text-center p-2 bg-orange-50 rounded-md">
-                          <div className="text-sm font-medium text-orange-600">
-                            {formatCurrency(teacher.salary)}
-                          </div>
-                          <div className="text-xs text-muted-foreground">Salário</div>
-                        </div>
-                      )}
-
-                      {/* Botões de ação */}
-                      <div className="flex gap-2 pt-2 border-t">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="flex-1"
-                          onClick={() => handleViewTeacherProfile(teacher)}
-                        >
-                          <Eye className="h-3 w-3 mr-1" />
-                          Ver Perfil
-                        </Button>
-                        <Button 
-                          variant={teacher.status === "active" ? "secondary" : "default"}
-                          size="sm"
-                          onClick={() => handleToggleTeacherStatus(teacher.id)}
-                          title={teacher.status === "active" ? "Desativar docente" : "Ativar docente"}
-                          className="px-3"
-                        >
-                          {teacher.status === "active" ? (
-                            <X className="h-3 w-3" />
-                          ) : (
-                            <CheckCircle className="h-3 w-3" />
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-
-            {/* Mensagem quando não há docentes */}
-            {teacherStats.length === 0 && (
-              <Card className="shadow-elegant">
-                <CardContent className="text-center py-12">
-                  <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="font-semibold mb-2">Nenhum docente cadastrado</h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Adicione docentes para começar a gerenciar o corpo docente.
-                  </p>
-                  <Button onClick={() => setCreateTeacherModal(true)}>
-                    <UserPlus className="h-4 w-4 mr-2" />
-                    Adicionar Primeiro Docente
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
+          <TabsContent value="teachers" className="mt-0">
+            <TeacherList
+              teachers={teacherStats}
+              permissions={adminPermissions}
+              currentUserRole="admin"
+              onViewTeacherProfile={handleViewTeacherProfile}
+              onDeleteTeacher={handleDeleteTeacher}
+              onToggleTeacherStatus={handleToggleTeacherStatus}
+              onAddTeacher={() => setCreateTeacherModal(true)}
+            />
           </TabsContent>
 
-          <TabsContent value="classes" className="space-y-6">
+          <TabsContent value="classes" className="mt-0">
             <ClassList
               classes={classes}
               permissions={adminPermissions}
@@ -874,313 +1155,150 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
             />
           </TabsContent>
 
-          <TabsContent value="payments" className="space-y-6">
-            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-              <h3 className="text-lg font-semibold">Controle de Pagamentos</h3>
-              
-              <div className="flex gap-2">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                  <Input
-                    placeholder="Buscar estudante..."
-                    value={paymentSearch}
-                    onChange={(e) => setPaymentSearch(e.target.value)}
-                    className="pl-10 w-64"
-                  />
-                </div>
-                
-                <select
-                  value={paymentFilter}
-                  onChange={(e) => setPaymentFilter(e.target.value)}
-                  className="px-3 py-2 border rounded-md"
-                >
-                  <option value="all">Todos</option>
-                  <option value="overdue">Em Atraso</option>
-                  <option value="debt">Com Dívida</option>
-                  <option value="advance">Com Crédito</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              {getFilteredStudents().map((student) => {
-                const paymentInfo = getStudentPaymentInfo(student.id, student.name, student.className);
-                const balanceColor = paymentInfo.currentBalance >= 0 ? 'text-green-600' : 'text-red-600';
-                const statusColor = paymentInfo.overduePayments.length > 0 ? 'destructive' : 
-                                  paymentInfo.currentBalance > 0 ? 'default' : 'secondary';
-                const statusText = paymentInfo.overduePayments.length > 0 ? 'Em Atraso' :
-                                 paymentInfo.currentBalance > 0 ? 'Com Crédito' : 'Regular';
-
-                return (
-                  <Card key={student.id} className="shadow-elegant">
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className={`h-4 w-4 rounded-full ${
-                            paymentInfo.overduePayments.length > 0 ? 'bg-red-500' : 
-                            paymentInfo.currentBalance > 0 ? 'bg-blue-500' : 'bg-green-500'
-                          }`} />
-                          <div>
-                            <div className="font-medium">{student.name}</div>
-                            <div className="text-sm text-muted-foreground">
-                              Turma: {student.className}
-                            </div>
-                            <div className="text-sm text-muted-foreground">
-                              Mensalidade: {formatCurrency(paymentInfo.monthlyFee)}
-                            </div>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center gap-6">
-                          <div className="text-center">
-                            <div className={`text-lg font-bold ${balanceColor}`}>
-                              {formatCurrency(Math.abs(paymentInfo.currentBalance))}
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              {paymentInfo.currentBalance >= 0 ? 'Crédito' : 'Dívida'}
-                            </div>
-                          </div>
-                          
-                          <div className="text-center">
-                            <div className="text-lg font-bold text-green-600">
-                              {formatCurrency(paymentInfo.totalPaid)}
-                            </div>
-                            <div className="text-xs text-muted-foreground">Pago</div>
-                          </div>
-                          
-                          <div className="text-center">
-                            <div className="text-lg font-bold text-red-600">
-                              {paymentInfo.overduePayments.length}
-                            </div>
-                            <div className="text-xs text-muted-foreground">Meses Atrasados</div>
-                          </div>
-                          
-                          <div className="flex items-center gap-2">
-                            <Badge variant={statusColor}>
-                              {statusText}
-                            </Badge>
-                            {paymentInfo.lastPaymentDate && (
-                              <div className="text-xs text-muted-foreground">
-                                Último: {new Date(paymentInfo.lastPaymentDate).toLocaleDateString('pt-BR')}
-                              </div>
-                            )}
-                          </div>
-                          
-                          <div className="flex gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleOpenPaymentModal(student.id)}
-                            >
-                              <DollarSign className="h-4 w-4 mr-1" />
-                              Gerenciar
-                            </Button>
-                            
-                            {paymentInfo.overduePayments.length > 0 && (
-                              <Button
-                                variant="default"
-                                size="sm"
-                                onClick={() => handleValidatePayment(student.id, paymentInfo.overduePayments[0].id)}
-                              >
-                                <CheckCircle className="h-4 w-4 mr-1" />
-                                Validar
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {paymentInfo.overduePayments.length > 0 && (
-                        <div className="mt-3 p-2 bg-red-50 border-l-4 border-red-500 rounded">
-                          <div className="text-sm text-red-800">
-                            <strong>Atenção:</strong> {paymentInfo.overduePayments.length} pagamento(s) em atraso.
-                            Total em atraso: {formatCurrency(paymentInfo.overduePayments.reduce((sum, p) => sum + p.amount, 0))}
-                          </div>
-                        </div>
-                      )}
-                      
-                      {paymentInfo.currentBalance > 0 && (
-                        <div className="mt-3 p-2 bg-blue-50 border-l-4 border-blue-500 rounded">
-                          <div className="text-sm text-blue-800">
-                            <strong>Crédito:</strong> Estudante possui {formatCurrency(paymentInfo.currentBalance)} em pagamentos antecipados.
-                          </div>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-
-            {getFilteredStudents().length === 0 && (
-              <Card className="shadow-elegant">
-                <CardContent className="text-center py-8">
-                  <Search className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="font-semibold mb-2">Nenhum estudante encontrado</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Tente ajustar os filtros de pesquisa.
-                  </p>
-                </CardContent>
-              </Card>
-            )}
+          <TabsContent value="courses" className="mt-0">
+            <CourseList
+              courses={courses}
+              isLoading={isLoadingCourses}
+              onAddCourse={() => setCreateCourseModal({ isOpen: true, courseData: null, isEditing: false })}
+              onEditCourse={handleEditCourse}
+              onDeleteCourse={handleDeleteCourse}
+            />
           </TabsContent>
 
-          <TabsContent value="settings" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card className="shadow-elegant">
-                <CardHeader>
-                  <CardTitle>Configurações do Sistema</CardTitle>
-                  <CardDescription>Configurações gerais do M007 Oxford</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                 <Button 
-  variant="outline" 
-  className="w-full justify-start"
-  onClick={() => setGeneralSettingsModal(true)}
->
-  <Settings className="h-4 w-4 mr-2" />
-  Configurações Gerais
-</Button>
-                  <Button variant="outline" className="w-full justify-start">
-                    <Users className="h-4 w-4 mr-2" />
-                    Gerenciar Permissões
-                  </Button>
-                  <Button variant="outline" className="w-full justify-start">
-                    <DollarSign className="h-4 w-4 mr-2" />
-                    Configurar Valores
-                  </Button>
-                  <Button variant="outline" className="w-full justify-start">
-                    <Shield className="h-4 w-4 mr-2" />
-                    Segurança do Sistema
-                  </Button>
-                </CardContent>
-              </Card>
+<TabsContent value="registrations" className="mt-0">
+  <RegistrationList
+    registrations={registrations}
+    permissions={adminPermissions}
+    currentUserRole="admin"
+    onViewRegistration={handleViewRegistration}
+    onEditRegistration={handleEditRegistration}
+    onDeleteRegistration={handleDeleteRegistration}
+    onAddRegistration={handleAddRegistration}
+  />
+</TabsContent>
 
-              <Card className="shadow-elegant">
-                <CardHeader>
-                  <CardTitle>Backup e Relatórios</CardTitle>
-                  <CardDescription>Gerenciar dados e relatórios</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <Button 
-                    variant="outline" 
-                    className="w-full justify-start"
-                    onClick={() => setReportsModal(true)}
-                  >
-                    <BarChart3 className="h-4 w-4 mr-2" />
-                    Relatórios Financeiros
-                  </Button>
-                  <Button variant="outline" className="w-full justify-start">
-                    <Receipt className="h-4 w-4 mr-2" />
-                    Exportar Pagamentos
-                  </Button>
-                  <Button variant="outline" className="w-full justify-start">
-                    <AlertTriangle className="h-4 w-4 mr-2" />
-                    Logs do Sistema
-                  </Button>
-                  <Button variant="outline" className="w-full justify-start">
-                    <TrendingUp className="h-4 w-4 mr-2" />
-                    Analytics Avançado
-                  </Button>
-                </CardContent>
-              </Card>
-              {/* Modal de Configurações Gerais */}
-<GeneralSettingsModal
-  isOpen={generalSettingsModal}
-  onClose={() => setGeneralSettingsModal(false)}
-  onSave={handleSaveSettings}
-  currentSettings={settings}
-/>
-            </div>
+          <TabsContent value="payments" className="mt-0">
+            <PaymentList
+              students={students}
+              onOpenPaymentModal={handleOpenPaymentModal}
+              formatCurrency={formatCurrency}
+              getStudentPaymentInfo={getStudentPaymentInfo}
+            />
           </TabsContent>
         </Tabs>
-        
       </div>
+    </main>
 
-      {/* Modais */}
-      <StudentModal
-        isOpen={studentModal.isOpen}
-        onClose={() => setStudentModal({ ...studentModal, isOpen: false })}
-        students={studentModal.students}
-        className={studentModal.className}
-        classId={studentModal.classId}
-        permissions={adminPermissions}
-        currentUserRole="admin"
-        onSendEmailToAll={handleSendEmailToAll}
-        onViewStudentProfile={handleViewStudentProfile}
-        onAddStudent={() => handleAddStudentToClass({ 
-          id: studentModal.classId, 
-          name: studentModal.className 
-        } as Class)}
+    {/* ========== TODOS OS MODAIS ========== */}
+    <StudentModal
+      isOpen={studentModal.isOpen}
+      onClose={() => setStudentModal({ ...studentModal, isOpen: false })}
+      students={studentModal.students}
+      className={studentModal.className}
+      classId={studentModal.classId}
+      permissions={adminPermissions}
+      currentUserRole="admin"
+      onSendEmailToAll={handleSendEmailToAll}
+      onViewStudentProfile={handleViewStudentProfile}
+      onAddStudent={() => handleAddStudentToClass({ id: studentModal.classId, name: studentModal.className } as Class)}
+    />
+
+    <ClassModal
+      isOpen={classModal.isOpen}
+      onClose={() => setClassModal({ ...classModal, isOpen: false })}
+      classData={classModal.classData}
+      permissions={adminPermissions}
+      currentUserRole="admin"
+      onSave={handleSaveClass}
+      onDelete={handleDeleteClass}
+      isCreating={classModal.isCreating}
+    />
+
+    <CreateStudentModal
+      isOpen={createStudentModal.isOpen}
+      onClose={() => setCreateStudentModal({ isOpen: false, preSelectedClassId: 0, preSelectedClassName: "" })}
+      onSave={handleCreateStudent}
+      availableClasses={classes}
+      preSelectedClassId={createStudentModal.preSelectedClassId}
+      preSelectedClassName={createStudentModal.preSelectedClassName}
+    />
+
+    <CreateTeacherModal
+      isOpen={createTeacherModal}
+      onClose={() => setCreateTeacherModal(false)}
+      onSave={handleCreateTeacher}
+    />
+
+    <ReportsModal
+      isOpen={reportsModal}
+      onClose={() => setReportsModal(false)}
+      onGenerateReport={handleGenerateReport}
+    />
+
+    {paymentModal.isOpen && paymentModal.studentId > 0 && (
+      <PaymentManagementModal
+        isOpen={paymentModal.isOpen}
+        onClose={() => setPaymentModal({ ...paymentModal, isOpen: false })}
+        studentPaymentInfo={getStudentPaymentInfo(
+          paymentModal.studentId,
+          students.find(s => s.id === paymentModal.studentId)?.name || '',
+          students.find(s => s.id === paymentModal.studentId)?.className || ''
+        )}
+        onRecordPayment={handleRecordPayment}
+        onUpdatePayment={updatePayment}
       />
+    )}
 
-      <ClassModal
-        isOpen={classModal.isOpen}
-        onClose={() => setClassModal({ ...classModal, isOpen: false })}
-        classData={classModal.classData}
-        permissions={adminPermissions}
-        currentUserRole="admin"
-        onSave={handleSaveClass}
-        onDelete={handleDeleteClass}
-        isCreating={classModal.isCreating}
-      />
+    <TeacherProfileModal
+      isOpen={isTeacherProfileModalOpen}
+      onClose={handleCloseTeacherProfileModal}
+      teacher={selectedTeacher}
+      onSave={handleSaveTeacherProfile}
+    />
 
-      <CreateStudentModal
-        isOpen={createStudentModal.isOpen}
-        onClose={() => setCreateStudentModal({ 
-          isOpen: false, 
-          preSelectedClassId: 0, 
-          preSelectedClassName: "" 
-        })}
-        onSave={handleCreateStudent}
-        availableClasses={classes}
-        preSelectedClassId={createStudentModal.preSelectedClassId}
-        preSelectedClassName={createStudentModal.preSelectedClassName}
-      />
+    <StudentProfileModal
+      isOpen={isStudentProfileModalOpen}
+      onClose={handleCloseStudentProfileModal}
+      student={selectedStudent}
+      currentUserRole="admin"
+      onSave={handleSaveStudentProfile}
+    />
 
-      <CreateTeacherModal
-        isOpen={createTeacherModal}
-        onClose={() => setCreateTeacherModal(false)}
-        onSave={handleCreateTeacher}
-      />
+    <GeneralSettingsModal
+      isOpen={generalSettingsModal}
+      onClose={() => setGeneralSettingsModal(false)}
+      onSave={handleSaveSettings}
+      currentSettings={settings}
+    />
 
-      <ReportsModal
-        isOpen={reportsModal}
-        onClose={() => setReportsModal(false)}
-        onGenerateReport={handleGenerateReport}
-      />
+    <SelectStudentModal
+      isOpen={selectStudentModal.isOpen}
+      onClose={() => setSelectStudentModal({ isOpen: false, turmaId: 0, cursoId: '' })}
+      turmaId={selectStudentModal.turmaId}
+      cursoId={selectStudentModal.cursoId}
+      onStudentsAdded={() => {
+        setSelectStudentModal({ isOpen: false, turmaId: 0, cursoId: '' });
+        toast.success('Estudantes adicionados com sucesso!');
+        loadClasses();
+      }}
+    />
 
-      {/* Modal de Gerenciamento de Pagamentos */}
-      {paymentModal.isOpen && (
-        <PaymentManagementModal
-          isOpen={paymentModal.isOpen}
-          onClose={() => setPaymentModal({ ...paymentModal, isOpen: false })}
-          studentPaymentInfo={getStudentPaymentInfo(
-            paymentModal.studentId,
-            students.find(s => s.id === paymentModal.studentId)?.name || '',
-            students.find(s => s.id === paymentModal.studentId)?.className || ''
-          )}
-          onRecordPayment={handleRecordPayment}
-          onUpdatePayment={updatePayment}
-        />
-      )}
+    <CreateCourseModal
+      isOpen={createCourseModal.isOpen}
+      onClose={() => setCreateCourseModal({ isOpen: false, courseData: null, isEditing: false })}
+      onSave={handleCreateCourse}
+      courseData={createCourseModal.courseData}
+      isEditing={createCourseModal.isEditing}
+/>
 
-      {/* Modal de Perfil do Docente */}
-      <TeacherProfileModal
-        isOpen={isTeacherProfileModalOpen}
-        onClose={handleCloseTeacherProfileModal}
-        teacher={selectedTeacher}
-        onSave={handleSaveTeacherProfile}
-      />
 
-      {/* Modal de Perfil do Estudante */}
-      <StudentProfileModal
-        isOpen={isStudentProfileModalOpen}
-        onClose={handleCloseStudentProfileModal}
-        student={selectedStudent}
-        currentUserRole="admin"
-        onSave={handleSaveStudentProfile}
-      />
-    </div>
-  );
+<RegistrationStudentModal
+  isOpen={registrationModal.isOpen}
+  onClose={() => setRegistrationModal({ isOpen: false, registrationData: null, isEditing: false })}
+  registrationData={registrationModal.registrationData}
+  isEditing={registrationModal.isEditing}
+  onSave={handleSaveRegistration}
+/>
+  </div>
+);
 }

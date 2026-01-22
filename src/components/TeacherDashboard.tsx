@@ -1,38 +1,35 @@
-
 import { useState } from "react";
 import { useAuthStore } from "@/store/authStore";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  BookOpen, 
-  Users, 
-  FileText, 
-  Upload, 
+import {
+  BookOpen,
+  Users,
+  FileText,
+  Upload,
   Calendar,
   LogOut,
   GraduationCap,
   BarChart3,
-  MessageSquare,
   Bell,
   Plus,
   CheckSquare,
-  TrendingUp
+  TrendingUp,
+  Settings,
+  Menu,
+  X
 } from "lucide-react";
-
-
-import { ClassList } from "./shared/ClassList";
 import { StudentList } from "./shared/StudentList";
-import { ClassModal } from "./shared/ClassModal";
+import { ClassModal } from "./shared/CreateClassModal";
 import { StudentModal } from "./shared/StudentModal";
 import { CreateAssignmentModal } from "./shared/CreateAssignmentModal";
 import { AttendanceModal } from "./shared/AttendanceModal";
 import { AnnouncementModal } from "./shared/AnnouncementModal";
 import { UploadMaterialModal } from "./shared/UploadMaterialModal";
 import { GradeManagementModal } from "./shared/GradeManagementModal";
-
-
+import { ClassList } from "./shared/TeacherComponents/ClassList";
 import { useClassData, useStudentData, useAssignmentData } from "../hooks/useData";
 import { Class, Student, Permission } from "../types";
 
@@ -43,66 +40,60 @@ interface TeacherDashboardProps {
 export function TeacherDashboard({ onLogout }: TeacherDashboardProps) {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
-  const displayName = user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.username : 'Docente';
+  
+  const displayName = user
+    ? `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.username || 'Docente'
+    : 'Docente';
+  
   const teacherId = user?.id ?? 0;
-
-  // Hooks de dados
+  
   const { classes, addClass, updateClass } = useClassData();
   const { students, getStudentsByClass } = useStudentData();
   const { assignments, addAssignment } = useAssignmentData();
-
-
+  
+  // Estado para controlar o menu mobile
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("dashboard");
+  
   const [studentModal, setStudentModal] = useState({
     isOpen: false,
     className: "",
     classId: 0,
     students: [] as Student[]
   });
-
+  
   const [classModal, setClassModal] = useState({
     isOpen: false,
     classData: null as Class | null,
     isCreating: false
   });
-
- 
+  
   const [createAssignmentModal, setCreateAssignmentModal] = useState(false);
   const [attendanceModal, setAttendanceModal] = useState(false);
   const [announcementModal, setAnnouncementModal] = useState(false);
   const [uploadMaterialModal, setUploadMaterialModal] = useState(false);
-
-  // Estado para o modal de notas
+  const [generalSettingsModal, setGeneralSettingsModal] = useState(false);
+  
   const [gradeModal, setGradeModal] = useState({
     isOpen: false,
     classData: null as Class | null,
     students: [] as Student[]
   });
-
-  // Permitoes do professor (modificado: não pode criar turmas)
+  
   const teacherPermissions: Permission = {
     canEdit: true,
     canDelete: false,
-    canAdd: true, 
+    canAdd: true,
     canViewDetails: true
   };
-
-
-  const classPermissions: Permission = {
-    canEdit: true,
-    canDelete: false,
-    canAdd: false, 
-    canViewDetails: true
-  };
-
-  // Estatísticas do dashboard
+  
   const dashboardStats = {
     totalClasses: classes.length,
     totalStudents: classes.reduce((sum, c) => sum + c.students, 0),
     pendingAssignments: assignments.reduce((sum, a) => sum + (a.total - a.submissions), 0),
     nextClass: "Business English"
   };
-
-  // Funções para os modais existentes
+  
   const handleViewStudents = (classItem: Class) => {
     const classStudents = getStudentsByClass(classItem.id);
     setStudentModal({
@@ -112,7 +103,7 @@ export function TeacherDashboard({ onLogout }: TeacherDashboardProps) {
       students: classStudents
     });
   };
-
+  
   const handleManageClass = (classItem: Class) => {
     setClassModal({
       isOpen: true,
@@ -120,20 +111,13 @@ export function TeacherDashboard({ onLogout }: TeacherDashboardProps) {
       isCreating: false
     });
   };
-
-  // Função para adicionar estudante à turma específica
-  const handleAddStudentToClass = (classItem: Class) => {
-    // Implementar modal para adicionar estudante à turma específica
-    console.log("Adicionando estudante à turma:", classItem.name);
-  };
-
+  
   const handleSaveClass = (classData: Partial<Class>) => {
     if (classModal.classData?.id) {
       updateClass(classModal.classData.id, classData);
     }
   };
-
-  // Função para lançar notas
+  
   const handleLaunchGrades = (classItem: Class) => {
     const classStudents = getStudentsByClass(classItem.id);
     setGradeModal({
@@ -142,66 +126,100 @@ export function TeacherDashboard({ onLogout }: TeacherDashboardProps) {
       students: classStudents
     });
   };
-
-  // Função para salvar notas
+  
   const handleSaveGrades = (gradeData: any) => {
     console.log("Notas salvas:", gradeData);
   };
-
+  
   const handleSendEmailToAll = () => {
     console.log("Enviando email para todos os estudantes");
   };
-
+  
   const handleChatWithStudent = (student: Student) => {
     console.log("Iniciando conversa com:", student.name);
   };
-
+  
   const handleViewStudentProfile = (student: Student) => {
     console.log("Visualizando perfil de:", student.name);
   };
-
-  // Funções para as ações rápidas (removidas: gradeAssignments, scheduleClass, viewReports)
+  
   const handleCreateAssignment = (assignmentData: any) => {
     addAssignment(assignmentData);
     console.log("Nova atividade criada:", assignmentData);
   };
-
+  
   const handleSaveAttendance = (attendanceData: any) => {
     console.log("Presença salva:", attendanceData);
   };
-
+  
   const handleCreateAnnouncement = (announcementData: any) => {
     console.log("Novo aviso criado:", announcementData);
   };
-
+  
   const handleUploadMaterial = (materialData: any) => {
     console.log("Material enviado:", materialData);
   };
 
-  const handleMessageStudents = () => {
-    console.log("Abrindo sistema de mensagens");
+  // Função para mudar de tab e fechar menu mobile
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    setIsMobileMenuOpen(false);
   };
-
+  
   return (
-    <div className="min-h-screen bg-gradient-subtle">
-      {/* Header */}
-      <header className="bg-card border-b border-border shadow-sm">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
+      {/* Header estilizado - Responsivo */}
+      <header className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-[#004B87] via-[#003868] to-[#004B87] backdrop-blur-lg bg-opacity-95 border-b border-blue-900/50 shadow-2xl">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 bg-gradient-primary rounded-xl flex items-center justify-center">
-                <BookOpen className="h-5 w-5 text-white" />
+          <div className="flex justify-between items-center h-16 lg:h-20">
+            {/* Logo e Título */}
+            <div className="flex items-center gap-3 lg:gap-4">
+              <div className="relative group">
+                <div className="absolute inset-0 bg-gradient-to-r from-[#F5821F] to-[#FF9933] rounded-xl lg:rounded-2xl blur-md opacity-75 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <div className="relative h-10 w-10 lg:h-12 lg:w-12 bg-white rounded-xl lg:rounded-2xl flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-transform duration-300 p-1">
+                  <img src="/image.png" alt="ISAC Logo" className="h-full w-full object-contain" />
+                </div>
               </div>
               <div>
-                <h1 className="text-xl font-bold">M007 Oxford</h1>
-                <p className="text-sm text-muted-foreground">Portal do Docente</p>
+                <h1 className="text-xl lg:text-2xl font-bold bg-gradient-to-r from-[#F5821F] to-[#FF9933] bg-clip-text text-transparent">ISAC</h1>
+                <p className="text-xs lg:text-sm text-slate-300 font-medium tracking-wide">Portal do Docente</p>
               </div>
             </div>
-            <div className="flex items-center gap-4">
-              <div className="text-right hidden sm:block">
-                <p className="font-medium">{displayName}</p>
-                <p className="text-sm text-muted-foreground">Docente</p>
+            
+            {/* Desktop: Status + Configurações + Usuário + Logout */}
+            <div className="hidden lg:flex items-center gap-4">
+              {/* Status Online */}
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-[#003868] rounded-full border border-emerald-500/30">
+                <div className="h-2 w-2 bg-emerald-400 rounded-full"></div>
+                <span className="text-xs text-white font-medium">Online</span>
               </div>
+              
+              {/* Botão Configurações */}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setGeneralSettingsModal(true)}
+                className="h-9 w-9 rounded-lg bg-[#003868] hover:bg-[#002850] text-slate-200 hover:text-white transition-colors"
+                title="Configurações do Sistema"
+              >
+                <Settings className="h-4 w-4" />
+              </Button>
+              
+              {/* Perfil do Usuário */}
+              <div className="flex items-center gap-3 px-3 py-1.5 bg-[#003868] rounded-lg hover:bg-[#002850] transition-colors cursor-pointer">
+                <div className="h-9 w-9 bg-gradient-to-br from-[#F5821F] to-[#FF9933] rounded-full flex items-center justify-center font-bold text-white shadow-md text-sm">
+                  {displayName.charAt(0).toUpperCase()}
+                </div>
+                <div className="text-left">
+                  <p className="font-semibold text-white text-sm leading-tight">{displayName}</p>
+                  <p className="text-xs text-slate-300 flex items-center gap-1">
+                    <BookOpen className="h-3 w-3" />
+                    Docente
+                  </p>
+                </div>
+              </div>
+              
+              {/* Botão Logout */}
               <Button
                 variant="ghost"
                 size="icon"
@@ -213,115 +231,268 @@ export function TeacherDashboard({ onLogout }: TeacherDashboardProps) {
                     console.error('Logout falhou', e);
                   }
                 }}
+                className="h-9 w-9 rounded-lg bg-[#003868] hover:bg-red-600/20 text-slate-200 hover:text-red-400 transition-colors"
               >
-                <LogOut className="h-5 w-5" />
+                <LogOut className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {/* Mobile: Hamburger Menu */}
+            <div className="lg:hidden flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                className="h-10 w-10 rounded-lg bg-[#003868] hover:bg-[#002850] text-white"
+              >
+                {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
               </Button>
             </div>
           </div>
         </div>
+        <div className="h-1 bg-gradient-to-r from-[#F5821F] via-[#FF9933] to-[#F5821F]"></div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Welcome Section */}
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold mb-2">Bem-vindo, {displayName}!</h2>
-          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-            <div className="flex items-center gap-2">
-              <GraduationCap className="h-5 w-5 text-oxford-gold" />
-              <span className="font-medium">{dashboardStats.totalClasses} Turmas Ativas</span>
+      {/* Mobile Menu Overlay */}
+      {isMobileMenuOpen && (
+        <div 
+          className="lg:hidden fixed inset-0 bg-black/50 z-40 top-[65px]"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
+      {/* Mobile Menu Drawer */}
+      <div className={`lg:hidden fixed top-[65px] right-0 h-[calc(100vh-65px)] w-72 bg-gradient-to-b from-[#004B87] to-[#003868] shadow-2xl z-40 transform transition-transform duration-300 ease-in-out ${
+        isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'
+      }`}>
+        <div className="p-6 space-y-6">
+          {/* Perfil Mobile */}
+          <div className="flex items-center gap-3 pb-6 border-b border-white/10">
+            <div className="h-12 w-12 bg-gradient-to-br from-[#F5821F] to-[#FF9933] rounded-full flex items-center justify-center font-bold text-white shadow-md">
+              {displayName.charAt(0).toUpperCase()}
             </div>
-            <div className="flex items-center gap-2">
-              <Users className="h-5 w-5 text-primary" />
-              <span className="font-medium">{dashboardStats.totalStudents} Estudantes</span>
+            <div>
+              <p className="font-semibold text-white text-sm">{displayName}</p>
+              <p className="text-xs text-slate-300 flex items-center gap-1">
+                <BookOpen className="h-3 w-3" />
+                Docente
+              </p>
             </div>
           </div>
+
+          {/* Menu Items */}
+          <nav className="space-y-2">
+            <button
+              onClick={() => handleTabChange("dashboard")}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                activeTab === "dashboard" 
+                  ? 'bg-[#F5821F] text-white' 
+                  : 'text-slate-200 hover:bg-white/10'
+              }`}
+            >
+              <BarChart3 className="h-5 w-5" />
+              <span className="font-medium">Dashboard</span>
+            </button>
+
+            <button
+              onClick={() => handleTabChange("classes")}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                activeTab === "classes" 
+                  ? 'bg-[#F5821F] text-white' 
+                  : 'text-slate-200 hover:bg-white/10'
+              }`}
+            >
+              <BookOpen className="h-5 w-5" />
+              <span className="font-medium">Turmas</span>
+            </button>
+
+            <button
+              onClick={() => handleTabChange("students")}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                activeTab === "students" 
+                  ? 'bg-[#F5821F] text-white' 
+                  : 'text-slate-200 hover:bg-white/10'
+              }`}
+            >
+              <Users className="h-5 w-5" />
+              <span className="font-medium">Estudantes</span>
+            </button>
+
+            <button
+              onClick={() => handleTabChange("assignments")}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                activeTab === "assignments" 
+                  ? 'bg-[#F5821F] text-white' 
+                  : 'text-slate-200 hover:bg-white/10'
+              }`}
+            >
+              <FileText className="h-5 w-5" />
+              <span className="font-medium">Trabalhos</span>
+            </button>
+
+            <button
+              onClick={() => handleTabChange("materials")}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                activeTab === "materials" 
+                  ? 'bg-[#F5821F] text-white' 
+                  : 'text-slate-200 hover:bg-white/10'
+              }`}
+            >
+              <Upload className="h-5 w-5" />
+              <span className="font-medium">Materiais</span>
+            </button>
+          </nav>
+
+          {/* Menu Footer */}
+          <div className="pt-6 border-t border-white/10 space-y-2">
+            <Button
+              variant="ghost"
+              className="w-full justify-start text-slate-200 hover:bg-white/10 hover:text-white"
+              onClick={() => {
+                setGeneralSettingsModal(true);
+                setIsMobileMenuOpen(false);
+              }}
+            >
+              <Settings className="h-4 w-4 mr-3" />
+              Configurações
+            </Button>
+
+            <Button
+              variant="ghost"
+              className="w-full justify-start text-red-400 hover:bg-red-500/20 hover:text-red-300"
+              onClick={async () => {
+                try {
+                  await logout();
+                  if (onLogout) onLogout();
+                } catch (e) {
+                  console.error('Logout falhou', e);
+                }
+              }}
+            >
+              <LogOut className="h-4 w-4 mr-3" />
+              Sair
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Espaçador para compensar o header fixed */}
+      <div className="h-[65px] lg:h-[85px]"></div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 lg:py-8">
+        {/* Welcome Section */}
+        <div className="mb-6 lg:mb-8 bg-gradient-to-r from-[#3B5998] via-[#5B7BB8] to-[#E07B5F] rounded-xl lg:rounded-2xl p-6 lg:p-8 shadow-lg">
+          <h2 className="text-2xl lg:text-3xl font-bold text-white mb-2">
+            Painel Do {displayName}!
+          </h2>
+          <p className="text-white/90 text-sm">
+            Gerencie estudantes, turmas e atividades de forma eficiente. 
+          </p>
         </div>
 
-        <Tabs defaultValue="dashboard" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 lg:grid-cols-5 h-auto p-1">
+        {/* Botões de Acesso Rápido - Mobile Only */}
+        <div className="lg:hidden flex gap-3 mb-6">
+          <Button
+            onClick={() => handleTabChange("classes")}
+            className="flex-1 bg-[#004B87] hover:bg-[#003868] text-white h-12 text-base font-semibold rounded-lg shadow-md"
+          >
+            <BookOpen className="h-5 w-5 mr-2" />
+            Turmas
+          </Button>
+
+          <Button
+            onClick={() => handleTabChange("students")}
+            className="flex-1 bg-[#F5821F] hover:bg-[#E07020] text-white h-12 text-base font-semibold rounded-lg shadow-md"
+          >
+            <Users className="h-5 w-5 mr-2" />
+            Estudantes
+          </Button>
+        </div>
+
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          {/* Desktop Tabs */}
+          <TabsList className="hidden lg:grid w-full grid-cols-5 h-auto p-1">
             <TabsTrigger value="dashboard" className="flex items-center gap-2">
               <BarChart3 className="h-4 w-4" />
-              <span className="hidden sm:inline">Dashboard</span>
+              <span>Dashboard</span>
             </TabsTrigger>
             <TabsTrigger value="classes" className="flex items-center gap-2">
               <BookOpen className="h-4 w-4" />
-              <span className="hidden sm:inline">Turmas</span>
+              <span>Turmas</span>
             </TabsTrigger>
             <TabsTrigger value="students" className="flex items-center gap-2">
               <Users className="h-4 w-4" />
-              <span className="hidden sm:inline">Estudantes</span>
+              <span>Estudantes</span>
             </TabsTrigger>
             <TabsTrigger value="assignments" className="flex items-center gap-2">
               <FileText className="h-4 w-4" />
-              <span className="hidden sm:inline">Trabalhos</span>
+              <span>Trabalhos</span>
             </TabsTrigger>
             <TabsTrigger value="materials" className="flex items-center gap-2">
               <Upload className="h-4 w-4" />
-              <span className="hidden sm:inline">Materiais</span>
+              <span>Materiais</span>
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="dashboard" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <TabsContent value="dashboard" className="space-y-4 lg:space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
               <Card className="shadow-elegant">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <BookOpen className="h-5 w-5 text-primary" />
+                  <CardTitle className="text-base lg:text-lg flex items-center gap-2">
+                    <BookOpen className="h-4 lg:h-5 w-4 lg:w-5 text-blue-600" />
                     Turmas Ativas
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-primary">{dashboardStats.totalClasses}</div>
-                  <p className="text-sm text-muted-foreground">Turmas sendo lecionadas</p>
+                  <div className="text-2xl lg:text-3xl font-bold text-blue-600">{dashboardStats.totalClasses}</div>
+                  <p className="text-xs lg:text-sm text-muted-foreground">Turmas sendo lecionadas</p>
                 </CardContent>
               </Card>
 
               <Card className="shadow-elegant">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Users className="h-5 w-5 text-oxford-gold" />
+                  <CardTitle className="text-base lg:text-lg flex items-center gap-2">
+                    <Users className="h-4 lg:h-5 w-4 lg:w-5 text-orange-500" />
                     Total Estudantes
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-oxford-gold">{dashboardStats.totalStudents}</div>
-                  <p className="text-sm text-muted-foreground">Estudantes matriculados</p>
+                  <div className="text-2xl lg:text-3xl font-bold text-orange-500">{dashboardStats.totalStudents}</div>
+                  <p className="text-xs lg:text-sm text-muted-foreground">Estudantes matriculados</p>
                 </CardContent>
               </Card>
 
               <Card className="shadow-elegant">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <FileText className="h-5 w-5 text-warning" />
+                  <CardTitle className="text-base lg:text-lg flex items-center gap-2">
+                    <FileText className="h-4 lg:h-5 w-4 lg:w-5 text-yellow-600" />
                     Trabalhos Criados
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-warning">{assignments.length}</div>
-                  <p className="text-sm text-muted-foreground">Total de trabalhos</p>
+                  <div className="text-2xl lg:text-3xl font-bold text-yellow-600">{assignments.length}</div>
+                  <p className="text-xs lg:text-sm text-muted-foreground">Total de trabalhos</p>
                 </CardContent>
               </Card>
 
               <Card className="shadow-elegant">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Calendar className="h-5 w-5 text-success" />
+                  <CardTitle className="text-base lg:text-lg flex items-center gap-2">
+                    <Calendar className="h-4 lg:h-5 w-4 lg:w-5 text-green-600" />
                     Próxima Aula
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-lg font-semibold">{dashboardStats.nextClass}</div>
-                  <p className="text-sm text-muted-foreground">Segunda, 14:00</p>
+                  <div className="text-base lg:text-lg font-semibold">{dashboardStats.nextClass}</div>
+                  <p className="text-xs lg:text-sm text-muted-foreground">Segunda, 14:00</p>
                 </CardContent>
               </Card>
             </div>
 
-            {}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Resumo Semanal */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
               <Card className="shadow-elegant">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
+                  <CardTitle className="flex items-center gap-2 text-base lg:text-lg">
                     <TrendingUp className="h-5 w-5" />
                     Resumo da Semana
                   </CardTitle>
@@ -330,7 +501,7 @@ export function TeacherDashboard({ onLogout }: TeacherDashboardProps) {
                   <div className="space-y-4">
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-muted-foreground">Aulas ministradas</span>
-                      <span className="font-semibold text-primary">12</span>
+                      <span className="font-semibold text-blue-600">12</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-muted-foreground">Trabalhos criados</span>
@@ -342,127 +513,61 @@ export function TeacherDashboard({ onLogout }: TeacherDashboardProps) {
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-muted-foreground">Materiais enviados</span>
-                      <span className="font-semibold text-oxford-gold">5</span>
+                      <span className="font-semibold text-orange-500">5</span>
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
-              {/* Ações Rápidas - Removidas: Corrigir, Agendar Aula, Relatórios */}
               <Card className="shadow-elegant">
                 <CardHeader>
-                  <CardTitle>Ações Rápidas</CardTitle>
-                  <CardDescription>Tarefas frequentes do dia a dia</CardDescription>
+                  <CardTitle className="text-base lg:text-lg">Ações Rápidas</CardTitle>
+                  <CardDescription className="text-xs lg:text-sm">Tarefas frequentes do dia a dia</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-2 gap-2">
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       className="h-auto p-3 flex flex-col items-center gap-2"
                       onClick={() => setCreateAssignmentModal(true)}
                     >
-                      <Plus className="h-5 w-5 text-primary" />
+                      <Plus className="h-5 w-5 text-blue-600" />
                       <span className="text-xs">Criar Trabalho</span>
                     </Button>
-
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       className="h-auto p-3 flex flex-col items-center gap-2"
                       onClick={() => setAttendanceModal(true)}
                     >
                       <CheckSquare className="h-5 w-5 text-green-600" />
                       <span className="text-xs">Marcar Presença</span>
                     </Button>
-
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       className="h-auto p-3 flex flex-col items-center gap-2"
                       onClick={() => setAnnouncementModal(true)}
                     >
-                      <Bell className="h-5 w-5 text-oxford-gold" />
+                      <Bell className="h-5 w-5 text-orange-500" />
                       <span className="text-xs">Criar Aviso</span>
                     </Button>
-
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       className="h-auto p-3 flex flex-col items-center gap-2"
                       onClick={() => setUploadMaterialModal(true)}
                     >
                       <Upload className="h-5 w-5 text-blue-600" />
                       <span className="text-xs">Upload Material</span>
                     </Button>
-
-                    {/* <Button 
-                      variant="outline" 
-                      className="h-auto p-3 flex flex-col items-center gap-2"
-                      onClick={handleMessageStudents}
-                    >
-                      <MessageSquare className="h-5 w-5 text-purple-600" />
-                      <span className="text-xs">Mensagens</span>
-                    </Button> */}
                   </div>
                 </CardContent>
               </Card>
             </div>
-
-            {/* Próximas Aulas */}
-            <Card className="shadow-elegant">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Calendar className="h-5 w-5" />
-                  Próximas Aulas
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between p-3 border rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <div className="h-2 w-2 bg-green-500 rounded-full"></div>
-                      <div>
-                        <div className="font-medium">Business English - A2</div>
-                        <div className="text-sm text-muted-foreground">Segunda-feira, 14:00 - 15:30</div>
-                      </div>
-                    </div>
-                    <div className="text-sm text-muted-foreground">Sala 105</div>
-                  </div>
-
-                  <div className="flex items-center justify-between p-3 border rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <div className="h-2 w-2 bg-blue-500 rounded-full"></div>
-                      <div>
-                        <div className="font-medium">Conversation - B1</div>
-                        <div className="text-sm text-muted-foreground">Terça-feira, 16:00 - 17:30</div>
-                      </div>
-                    </div>
-                    <div className="text-sm text-muted-foreground">Sala 203</div>
-                  </div>
-
-                  <div className="flex items-center justify-between p-3 border rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <div className="h-2 w-2 bg-purple-500 rounded-full"></div>
-                      <div>
-                        <div className="font-medium">Advanced Grammar - C1</div>
-                        <div className="text-sm text-muted-foreground">Sexta-feira, 10:00 - 12:00</div>
-                      </div>
-                    </div>
-                    <div className="text-sm text-muted-foreground">Sala 301</div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
           </TabsContent>
 
           <TabsContent value="classes" className="space-y-6">
-            <ClassList
-              classes={classes}
-              permissions={classPermissions}
-              currentUserRole="teacher"
+            <ClassList 
               onViewStudents={handleViewStudents}
-              onManageClass={handleManageClass}
-              onCreateClass={() => {}}
-              onLaunchGrades={handleLaunchGrades}
-              onDeleteClass={() => {}}
-              onAddStudentToClass={handleAddStudentToClass}
+              onViewDetails={handleManageClass}
             />
           </TabsContent>
 
@@ -476,56 +581,57 @@ export function TeacherDashboard({ onLogout }: TeacherDashboardProps) {
             />
           </TabsContent>
 
-          <TabsContent value="assignments" className="space-y-6">
-            <div className="flex justify-between items-center">
+          <TabsContent value="assignments" className="space-y-4 lg:space-y-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <h3 className="text-lg font-semibold">Trabalhos e Atividades</h3>
-              <Button variant="oxford" onClick={() => setCreateAssignmentModal(true)}>
+              <Button 
+                variant="outline" 
+                onClick={() => setCreateAssignmentModal(true)} 
+                className="bg-blue-600 hover:bg-blue-700 text-white border-0 w-full sm:w-auto"
+              >
                 <FileText className="h-4 w-4 mr-2" />
                 Criar Trabalho
               </Button>
             </div>
-
             <div className="space-y-4">
               {assignments.map((assignment) => (
                 <Card key={assignment.id} className="shadow-elegant">
                   <CardHeader>
-                    <div className="flex justify-between items-start">
+                    <div className="flex flex-col sm:flex-row justify-between items-start gap-3">
                       <div>
-                        <CardTitle className="text-lg">{assignment.title}</CardTitle>
-                        <CardDescription>{assignment.class}</CardDescription>
+                        <CardTitle className="text-base lg:text-lg">{assignment.title}</CardTitle>
+                        <CardDescription className="text-xs lg:text-sm">{assignment.class}</CardDescription>
                       </div>
-                      <Badge variant="outline">
+                      <Badge variant="outline" className="text-xs">
                         Prazo: {new Date(assignment.dueDate).toLocaleDateString('pt-BR')}
                       </Badge>
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                      <div className="flex items-center gap-4 w-full sm:w-auto">
                         <div className="text-center">
-                          <div className="text-2xl font-bold text-primary">
+                          <div className="text-xl lg:text-2xl font-bold text-blue-600">
                             {assignment.submissions}
                           </div>
                           <div className="text-xs text-muted-foreground">Entregues</div>
                         </div>
                         <div className="text-center">
-                          <div className="text-2xl font-bold text-muted-foreground">
+                          <div className="text-xl lg:text-2xl font-bold text-muted-foreground">
                             {assignment.total}
                           </div>
                           <div className="text-xs text-muted-foreground">Total</div>
                         </div>
                         <div className="text-center">
-                          <div className="text-2xl font-bold text-warning">
+                          <div className="text-xl lg:text-2xl font-bold text-yellow-600">
                             {assignment.total - assignment.submissions}
                           </div>
                           <div className="text-xs text-muted-foreground">Pendentes</div>
                         </div>
                       </div>
-                      <div className="space-x-2">
-                        <Button variant="outline" size="sm">
-                          Ver Entregas
-                        </Button>
-                      </div>
+                      <Button variant="outline" size="sm" className="w-full sm:w-auto">
+                        Ver Entregas
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -533,17 +639,23 @@ export function TeacherDashboard({ onLogout }: TeacherDashboardProps) {
             </div>
           </TabsContent>
 
-          <TabsContent value="materials" className="space-y-6">
-            <div className="flex justify-between items-center">
+          <TabsContent value="materials" className="space-y-4 lg:space-y-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <h3 className="text-lg font-semibold">Materiais de Ensino</h3>
-              <Button variant="oxford" onClick={() => setUploadMaterialModal(true)}>
+              <Button 
+                variant="outline" 
+                onClick={() => setUploadMaterialModal(true)} 
+                className="bg-blue-600 hover:bg-blue-700 text-white border-0 w-full sm:w-auto"
+              >
                 <Upload className="h-4 w-4 mr-2" />
                 Upload Material
               </Button>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <Card className="shadow-elegant border-dashed border-2 border-muted-foreground/25 hover:border-primary transition-colors cursor-pointer" onClick={() => setUploadMaterialModal(true)}>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
+              <Card 
+                className="shadow-elegant border-dashed border-2 border-muted-foreground/25 hover:border-blue-600 transition-colors cursor-pointer" 
+                onClick={() => setUploadMaterialModal(true)}
+              >
                 <CardContent className="flex flex-col items-center justify-center h-40">
                   <Upload className="h-12 w-12 text-muted-foreground mb-4" />
                   <h3 className="font-semibold mb-2">Upload de Áudio</h3>
@@ -552,8 +664,10 @@ export function TeacherDashboard({ onLogout }: TeacherDashboardProps) {
                   </p>
                 </CardContent>
               </Card>
-
-              <Card className="shadow-elegant border-dashed border-2 border-muted-foreground/25 hover:border-primary transition-colors cursor-pointer" onClick={() => setUploadMaterialModal(true)}>
+              <Card 
+                className="shadow-elegant border-dashed border-2 border-muted-foreground/25 hover:border-blue-600 transition-colors cursor-pointer" 
+                onClick={() => setUploadMaterialModal(true)}
+              >
                 <CardContent className="flex flex-col items-center justify-center h-40">
                   <Upload className="h-12 w-12 text-muted-foreground mb-4" />
                   <h3 className="font-semibold mb-2">Upload de Vídeo</h3>
@@ -562,8 +676,10 @@ export function TeacherDashboard({ onLogout }: TeacherDashboardProps) {
                   </p>
                 </CardContent>
               </Card>
-
-              <Card className="shadow-elegant border-dashed border-2 border-muted-foreground/25 hover:border-primary transition-colors cursor-pointer" onClick={() => setUploadMaterialModal(true)}>
+              <Card 
+                className="shadow-elegant border-dashed border-2 border-muted-foreground/25 hover:border-blue-600 transition-colors cursor-pointer" 
+                onClick={() => setUploadMaterialModal(true)}
+              >
                 <CardContent className="flex flex-col items-center justify-center h-40">
                   <Upload className="h-12 w-12 text-muted-foreground mb-4" />
                   <h3 className="font-semibold mb-2">Upload de Documentos</h3>
@@ -590,7 +706,7 @@ export function TeacherDashboard({ onLogout }: TeacherDashboardProps) {
         onChatWithStudent={handleChatWithStudent}
         onViewStudentProfile={handleViewStudentProfile}
       />
-
+      
       <ClassModal
         isOpen={classModal.isOpen}
         onClose={() => setClassModal({ ...classModal, isOpen: false })}
@@ -598,17 +714,17 @@ export function TeacherDashboard({ onLogout }: TeacherDashboardProps) {
         permissions={teacherPermissions}
         currentUserRole="teacher"
         onSave={handleSaveClass}
-        isCreating={false} // Professor nunca pode criar turmas
+        isCreating={false}
       />
-
-        <CreateAssignmentModal
+      
+      <CreateAssignmentModal
         isOpen={createAssignmentModal}
         onClose={() => setCreateAssignmentModal(false)}
         onSave={handleCreateAssignment}
         availableClasses={classes}
-          teacherId={teacherId}
+        teacherId={teacherId}
       />
-
+      
       <AttendanceModal
         isOpen={attendanceModal}
         onClose={() => setAttendanceModal(false)}
@@ -616,15 +732,15 @@ export function TeacherDashboard({ onLogout }: TeacherDashboardProps) {
         availableClasses={classes}
         getStudentsByClass={getStudentsByClass}
       />
-
-  <AnnouncementModal
+      
+      <AnnouncementModal
         isOpen={announcementModal}
         onClose={() => setAnnouncementModal(false)}
         onSave={handleCreateAnnouncement}
         availableClasses={classes}
-  teacherId={teacherId}
+        teacherId={teacherId}
       />
-
+      
       <UploadMaterialModal
         isOpen={uploadMaterialModal}
         onClose={() => setUploadMaterialModal(false)}
@@ -632,7 +748,7 @@ export function TeacherDashboard({ onLogout }: TeacherDashboardProps) {
         availableClasses={classes}
         teacherId={teacherId}
       />
-
+      
       {gradeModal.classData && (
         <GradeManagementModal
           isOpen={gradeModal.isOpen}
