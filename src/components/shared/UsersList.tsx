@@ -17,9 +17,17 @@ import {
   XCircle,
   Eye,
   Edit,
-  Trash2
+  Trash2,
+  Plus,
+  Key,
+  Activity,
+  UserPlus,
+  Download
 } from "lucide-react";
 import { Permission } from "@/types";
+import { CreateUserModal } from "./CreateUserModal";
+import { UserCredentialsModal } from "./UserCredentialsModal";
+import { UserAccessHistoryModal } from "./UserAccessHistoryModal";
 
 export interface SystemUser {
   id: number;
@@ -39,6 +47,8 @@ interface UsersListProps {
   onViewUser?: (user: SystemUser) => void;
   onEditUser?: (user: SystemUser) => void;
   onDeleteUser?: (userId: number) => void;
+  onCreateUser?: (userData: Partial<SystemUser>) => void;
+  onUpdateUser?: (userId: number, userData: Partial<SystemUser>) => void;
 }
 
 export function UsersList({
@@ -46,11 +56,27 @@ export function UsersList({
   permissions,
   onViewUser,
   onEditUser,
-  onDeleteUser
+  onDeleteUser,
+  onCreateUser,
+  onUpdateUser
 }: UsersListProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState<"all" | "admin" | "teacher" | "student">("all");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
+
+  const [createUserModal, setCreateUserModal] = useState(false);
+  const [editUserModal, setEditUserModal] = useState<{ isOpen: boolean; user: SystemUser | null }>({
+    isOpen: false,
+    user: null
+  });
+  const [credentialsModal, setCredentialsModal] = useState<{ isOpen: boolean; user: SystemUser | null }>({
+    isOpen: false,
+    user: null
+  });
+  const [accessHistoryModal, setAccessHistoryModal] = useState<{ isOpen: boolean; user: SystemUser | null }>({
+    isOpen: false,
+    user: null
+  });
 
   const filteredUsers = users.filter(user => {
     const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -104,6 +130,54 @@ export function UsersList({
     });
   };
 
+  const handleCreateUser = (userData: Partial<SystemUser>) => {
+    if (onCreateUser) {
+      onCreateUser(userData);
+    }
+    setCreateUserModal(false);
+  };
+
+  const handleEditUser = (user: SystemUser) => {
+    setEditUserModal({ isOpen: true, user });
+  };
+
+  const handleUpdateUser = (userData: Partial<SystemUser>) => {
+    if (editUserModal.user && onUpdateUser) {
+      onUpdateUser(editUserModal.user.id, userData);
+    }
+    setEditUserModal({ isOpen: false, user: null });
+  };
+
+  const handleViewCredentials = (user: SystemUser) => {
+    setCredentialsModal({ isOpen: true, user });
+  };
+
+  const handleViewAccessHistory = (user: SystemUser) => {
+    setAccessHistoryModal({ isOpen: true, user });
+  };
+
+  const handleExportUsers = () => {
+    const csvContent = [
+      ["ID", "Nome", "Email", "Telefone", "Perfil", "Status", "Data de Criação", "Último Acesso"],
+      ...filteredUsers.map(u => [
+        u.id,
+        u.name,
+        u.email,
+        u.phone || "",
+        getRoleInfo(u.role).label,
+        u.status === "active" ? "Ativo" : "Inativo",
+        formatDate(u.createdAt),
+        u.lastLogin ? formatDate(u.lastLogin) : "Nunca acessou"
+      ])
+    ].map(row => row.join(",")).join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `usuarios_${new Date().toISOString().split("T")[0]}.csv`;
+    link.click();
+  };
+
   return (
     <div className="space-y-6">
       <div className="bg-gradient-to-br from-slate-50 to-blue-50/30 rounded-2xl p-8 border border-slate-200/60">
@@ -116,6 +190,28 @@ export function UsersList({
             <p className="text-sm text-[#004B87]/70">
               {stats.total} usuário{stats.total !== 1 ? 's' : ''} no sistema
             </p>
+          </div>
+
+          <div className="flex gap-2">
+            {permissions.canExportData && (
+              <Button
+                onClick={handleExportUsers}
+                variant="outline"
+                className="border-2 border-slate-300 hover:border-slate-400"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Exportar
+              </Button>
+            )}
+            {permissions.canAdd && (
+              <Button
+                onClick={() => setCreateUserModal(true)}
+                className="bg-gradient-to-r from-[#F5821F] to-[#FF9933] hover:from-[#E07318] hover:to-[#F58820] text-white"
+              >
+                <UserPlus className="h-5 w-5 mr-2" />
+                Novo Usuário
+              </Button>
+            )}
           </div>
         </div>
 
@@ -303,35 +399,42 @@ export function UsersList({
                     )}
                   </div>
 
-                  <div className="col-span-1 flex justify-end gap-2">
-                    {permissions.canViewDetails && onViewUser && (
-                      <Button
-                        size="icon"
-                        className="h-9 w-9 bg-gradient-to-r from-[#F5821F] to-[#FF9933] hover:from-[#E07318] hover:to-[#F58820] text-white rounded-lg shadow-md"
-                        onClick={() => onViewUser(user)}
-                        title="Ver detalhes"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    )}
+                  <div className="col-span-1 flex justify-end gap-1">
+                    <Button
+                      size="icon"
+                      className="h-9 w-9 bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white rounded-lg shadow-md"
+                      onClick={() => handleViewAccessHistory(user)}
+                      title="Histórico de Acesso"
+                    >
+                      <Activity className="h-4 w-4" />
+                    </Button>
 
-                    {permissions.canEdit && onEditUser && (
+                    <Button
+                      size="icon"
+                      className="h-9 w-9 bg-gradient-to-r from-[#F5821F] to-[#FF9933] hover:from-[#E07318] hover:to-[#F58820] text-white rounded-lg shadow-md"
+                      onClick={() => handleViewCredentials(user)}
+                      title="Ver Credenciais"
+                    >
+                      <Key className="h-4 w-4" />
+                    </Button>
+
+                    {permissions.canEdit && (
                       <Button
                         size="icon"
                         className="h-9 w-9 bg-[#004B87] hover:bg-[#003868] text-white rounded-lg shadow-md"
-                        onClick={() => onEditUser(user)}
+                        onClick={() => handleEditUser(user)}
                         title="Editar"
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
                     )}
 
-                    {permissions.canDelete && onDeleteUser && user.role !== 'admin' && (
+                    {permissions.canDelete && user.role !== 'admin' && (
                       <Button
                         variant="ghost"
                         size="icon"
                         className="h-9 w-9 text-red-500 hover:bg-red-50 rounded-lg"
-                        onClick={() => onDeleteUser(user.id)}
+                        onClick={() => onDeleteUser && onDeleteUser(user.id)}
                         title="Remover"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -367,6 +470,34 @@ export function UsersList({
           )}
         </div>
       )}
+
+      <CreateUserModal
+        isOpen={createUserModal}
+        onClose={() => setCreateUserModal(false)}
+        onSave={handleCreateUser}
+        isEditing={false}
+      />
+
+      <CreateUserModal
+        isOpen={editUserModal.isOpen}
+        onClose={() => setEditUserModal({ isOpen: false, user: null })}
+        onSave={handleUpdateUser}
+        userData={editUserModal.user}
+        isEditing={true}
+      />
+
+      <UserCredentialsModal
+        isOpen={credentialsModal.isOpen}
+        onClose={() => setCredentialsModal({ isOpen: false, user: null })}
+        user={credentialsModal.user}
+        onResetPassword={(userId) => console.log("Reset password for user:", userId)}
+      />
+
+      <UserAccessHistoryModal
+        isOpen={accessHistoryModal.isOpen}
+        onClose={() => setAccessHistoryModal({ isOpen: false, user: null })}
+        user={accessHistoryModal.user}
+      />
     </div>
   );
 }

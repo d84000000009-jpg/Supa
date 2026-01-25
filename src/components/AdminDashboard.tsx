@@ -1317,7 +1317,31 @@ const mappedStudents = apiStudents.map((student: APIStudent) => {
               permissions={adminPermissions}
               onViewUser={(user) => console.log('Ver usuário:', user)}
               onEditUser={(user) => console.log('Editar usuário:', user)}
-              onDeleteUser={(userId) => console.log('Remover usuário:', userId)}
+              onDeleteUser={(userId) => {
+                if (confirm('Tem certeza que deseja remover este usuário?')) {
+                  setSystemUsers(prev => prev.filter(u => u.id !== userId));
+                  toast.success('Usuário removido com sucesso!');
+                }
+              }}
+              onCreateUser={(userData) => {
+                const newUser: SystemUser = {
+                  id: Date.now(),
+                  name: userData.name || '',
+                  email: userData.email || '',
+                  phone: userData.phone,
+                  role: userData.role || 'student',
+                  status: userData.status || 'active',
+                  createdAt: new Date().toISOString(),
+                };
+                setSystemUsers(prev => [...prev, newUser]);
+                toast.success('Usuário criado com sucesso!');
+              }}
+              onUpdateUser={(userId, userData) => {
+                setSystemUsers(prev => prev.map(u =>
+                  u.id === userId ? { ...u, ...userData } : u
+                ));
+                toast.success('Usuário atualizado com sucesso!');
+              }}
             />
           </TabsContent>
 
