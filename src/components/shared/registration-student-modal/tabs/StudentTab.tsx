@@ -81,8 +81,8 @@ export function StudentTab({
     },
     {
       id: 'transfer' as const,
-      label: 'Transferência',
-      description: 'Transferência de outra instituição',
+      label: 'Inscrição por Módulo',
+      description: 'Matrícula em módulos específicos',
       icon: ArrowRightLeft,
       color: 'from-purple-500 to-violet-600',
       bgColor: 'bg-purple-50',
@@ -289,7 +289,7 @@ function SelectedStudentCard({
     const badges = {
       new: { label: 'Novo Estudante', color: 'bg-green-500' },
       renewal: { label: 'Renovação', color: 'bg-blue-500' },
-      transfer: { label: 'Transferência', color: 'bg-purple-500' },
+      transfer: { label: 'Inscrição por Módulo', color: 'bg-purple-500' },
     };
 
     const badge = badges[registrationType];

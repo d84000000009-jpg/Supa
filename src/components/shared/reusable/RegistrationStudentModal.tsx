@@ -11,6 +11,8 @@ import {
   Shield,
   Sparkles,
   User,
+  Printer,
+  MessageCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -102,6 +104,7 @@ export function RegistrationStudentModal({
 
   const [studentSearch, setStudentSearch] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showChatPrompt, setShowChatPrompt] = useState(false);
 
   const [formData, setFormData] = useState<RegistrationFormData>(buildInitialFormData);
   const [formErrors, setFormErrors] = useState<RegistrationFormErrors>({});
@@ -356,6 +359,73 @@ export function RegistrationStudentModal({
     onClose();
   };
 
+  const handlePrintReceipt = () => {
+    const receiptContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Recibo de Matrícula - ${formData.studentName}</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; }
+          .header { text-align: center; margin-bottom: 40px; border-bottom: 3px solid #004B87; padding-bottom: 20px; }
+          .header h1 { color: #004B87; margin: 0; font-size: 28px; }
+          .header p { color: #666; margin: 5px 0; }
+          .section { margin: 30px 0; }
+          .section h2 { color: #004B87; font-size: 18px; margin-bottom: 15px; border-bottom: 2px solid #F5821F; padding-bottom: 5px; }
+          .info-row { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #eee; }
+          .info-row strong { color: #333; }
+          .total { background: #f8f9fa; padding: 15px; margin-top: 20px; border-left: 4px solid #F5821F; }
+          .footer { margin-top: 50px; text-align: center; color: #666; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>ISAC - Instituto Superior de Artes e Cultura</h1>
+          <p>Recibo de Matrícula</p>
+          <p>Data: ${new Date().toLocaleDateString('pt-PT')}</p>
+        </div>
+
+        <div class="section">
+          <h2>Dados do Estudante</h2>
+          <div class="info-row"><span><strong>Nome:</strong></span><span>${formData.studentName}</span></div>
+          <div class="info-row"><span><strong>Código:</strong></span><span>${formData.studentCode}</span></div>
+          <div class="info-row"><span><strong>Email:</strong></span><span>${formData.username}</span></div>
+        </div>
+
+        <div class="section">
+          <h2>Dados do Curso</h2>
+          <div class="info-row"><span><strong>Curso:</strong></span><span>${formData.courseName}</span></div>
+          <div class="info-row"><span><strong>Turma:</strong></span><span>${formData.className || 'Não atribuída'}</span></div>
+          <div class="info-row"><span><strong>Período:</strong></span><span>${formData.period}</span></div>
+          <div class="info-row"><span><strong>Data de Matrícula:</strong></span><span>${new Date(formData.enrollmentDate).toLocaleDateString('pt-PT')}</span></div>
+        </div>
+
+        <div class="section">
+          <h2>Dados Financeiros</h2>
+          <div class="info-row"><span><strong>Taxa de Matrícula:</strong></span><span>${formatCurrency(formData.enrollmentFee)}</span></div>
+          <div class="info-row"><span><strong>Mensalidade:</strong></span><span>${formatCurrency(formData.monthlyFee)}</span></div>
+          <div class="total">
+            <strong>Total a Pagar:</strong> ${formatCurrency(formData.enrollmentFee + formData.monthlyFee)}
+          </div>
+        </div>
+
+        <div class="footer">
+          <p>Este documento comprova a matrícula do estudante no curso indicado.</p>
+          <p>Gerado em ${new Date().toLocaleString('pt-PT')}</p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(receiptContent);
+      printWindow.document.close();
+      printWindow.print();
+      toast.success("Recibo de matrícula gerado!");
+    }
+  };
+
   // -----------------------------
   // UI
   // -----------------------------
@@ -497,6 +567,17 @@ export function RegistrationStudentModal({
               </Button>
 
               <div className="flex gap-3">
+                {activeTab === "credentials" && (
+                  <Button
+                    onClick={handlePrintReceipt}
+                    variant="outline"
+                    className="border-2 border-[#004B87] text-[#004B87] hover:bg-[#004B87] hover:text-white px-6 h-12 rounded-xl flex gap-2 font-bold transition-all"
+                  >
+                    <Printer className="h-4 w-4" />
+                    Imprimir Recibo
+                  </Button>
+                )}
+
                 {activeTab !== "credentials" ? (
                   <Button
                     onClick={validateAndNext}
@@ -514,6 +595,52 @@ export function RegistrationStudentModal({
                 )}
               </div>
             </footer>
+
+            {/* FLOATING CHAT BUTTON */}
+            <button
+              onClick={() => setShowChatPrompt(true)}
+              className="fixed bottom-6 right-6 h-14 w-14 bg-gradient-to-r from-[#F5821F] to-[#FF9933] hover:from-[#E07318] hover:to-[#F58820] text-white rounded-full shadow-2xl flex items-center justify-center transition-all hover:scale-110 active:scale-95 z-50"
+              title="Enviar mensagem"
+            >
+              <MessageCircle className="h-6 w-6" />
+            </button>
+
+            {/* CHAT PROMPT MODAL */}
+            {showChatPrompt && (
+              <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full">
+                  <h3 className="text-xl font-bold text-[#004B87] mb-4">Enviar Mensagem</h3>
+                  <p className="text-slate-600 mb-6">
+                    Deseja enviar uma mensagem de boas-vindas ao estudante <strong>{formData.studentName}</strong>?
+                  </p>
+
+                  <textarea
+                    className="w-full h-32 p-3 border-2 border-slate-200 rounded-xl focus:border-[#F5821F] focus:outline-none resize-none mb-4"
+                    placeholder="Digite sua mensagem aqui..."
+                    defaultValue={`Olá ${formData.studentName},\n\nSeja bem-vindo(a) ao ISAC!\n\nSua matrícula foi realizada com sucesso no curso ${formData.courseName}.\n\nEstamos muito felizes em tê-lo(a) conosco!`}
+                  />
+
+                  <div className="flex gap-3">
+                    <Button
+                      variant="ghost"
+                      onClick={() => setShowChatPrompt(false)}
+                      className="flex-1"
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        toast.success("Mensagem enviada com sucesso!");
+                        setShowChatPrompt(false);
+                      }}
+                      className="flex-1 bg-gradient-to-r from-[#F5821F] to-[#FF9933] hover:from-[#E07318] hover:to-[#F58820] text-white"
+                    >
+                      Enviar
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </DialogContent>

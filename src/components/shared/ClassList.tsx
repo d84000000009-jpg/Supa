@@ -521,8 +521,8 @@ export function ClassList({
                       </Button>
                     )}
 
-                    {/* Lançar Notas - Professor */}
-                    {currentUserRole === 'teacher' && onLaunchGrades && (
+                    {/* Lançar Notas - Professor e Admin */}
+                    {(currentUserRole === 'teacher' || currentUserRole === 'admin') && onLaunchGrades && (
                       <Button
                         variant="outline"
                         size="sm"

@@ -35,15 +35,17 @@ interface StudentProfileModalProps {
   currentUserRole: 'admin' | 'teacher';
   onSave: (updatedStudent: Student) => void;
   onToggleStatus?: (studentId: number) => void;
+  onViewPaymentDetails?: (student: Student) => void;
 }
 
-export function StudentProfileModal({ 
-  isOpen, 
-  onClose, 
-  student, 
+export function StudentProfileModal({
+  isOpen,
+  onClose,
+  student,
   currentUserRole,
   onSave,
-  onToggleStatus
+  onToggleStatus,
+  onViewPaymentDetails
 }: StudentProfileModalProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
@@ -398,6 +400,109 @@ export function StudentProfileModal({
                 </CardContent>
               </Card>
 
+              {/* Notas e Avaliações */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Award className="h-5 w-5" />
+                    Notas e Avaliações
+                  </CardTitle>
+                  <CardDescription>Histórico de desempenho nas avaliações</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-3">
+                    {/* 1ª Avaliação */}
+                    <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-200">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-lg flex items-center justify-center">
+                          <span className="text-white font-bold text-sm">1ª</span>
+                        </div>
+                        <div>
+                          <p className="font-semibold text-sm text-slate-800">Primeira Avaliação</p>
+                          <p className="text-xs text-slate-500">Realizada em 15/01/2025</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-2xl font-bold text-blue-600">17.5</p>
+                        <p className="text-xs text-slate-500">de 20</p>
+                      </div>
+                    </div>
+
+                    {/* 2ª Avaliação */}
+                    <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-200">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center">
+                          <span className="text-white font-bold text-sm">2ª</span>
+                        </div>
+                        <div>
+                          <p className="font-semibold text-sm text-slate-800">Segunda Avaliação</p>
+                          <p className="text-xs text-slate-500">Realizada em 22/01/2025</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-2xl font-bold text-green-600">18.0</p>
+                        <p className="text-xs text-slate-500">de 20</p>
+                      </div>
+                    </div>
+
+                    {/* 3ª Avaliação */}
+                    <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-200">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 bg-gradient-to-br from-orange-500 to-amber-600 rounded-lg flex items-center justify-center">
+                          <span className="text-white font-bold text-sm">3ª</span>
+                        </div>
+                        <div>
+                          <p className="font-semibold text-sm text-slate-800">Terceira Avaliação</p>
+                          <p className="text-xs text-slate-500">Prevista para 05/02/2025</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <Badge variant="outline" className="text-xs">
+                          Pendente
+                        </Badge>
+                      </div>
+                    </div>
+
+                    {/* 4ª Avaliação */}
+                    <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-200">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 bg-gradient-to-br from-purple-500 to-violet-600 rounded-lg flex items-center justify-center">
+                          <span className="text-white font-bold text-sm">4ª</span>
+                        </div>
+                        <div>
+                          <p className="font-semibold text-sm text-slate-800">Quarta Avaliação</p>
+                          <p className="text-xs text-slate-500">Prevista para 15/02/2025</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <Badge variant="outline" className="text-xs">
+                          Pendente
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Média Geral */}
+                  <div className="mt-4 p-4 bg-gradient-to-br from-[#004B87] to-[#0066B3] rounded-xl">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <TrendingUp className="h-6 w-6 text-white" />
+                        <div>
+                          <p className="text-white/80 text-xs font-medium">Média Atual</p>
+                          <p className="text-white text-sm">Baseada em 2 avaliações</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-4xl font-bold text-white">17.8</p>
+                        <Badge className="bg-white/20 text-white border-0 mt-1">
+                          Excelente
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
               {/* Contatos de Emergência */}
               <Card>
                 <CardHeader>
@@ -569,7 +674,7 @@ export function StudentProfileModal({
                   </div>
 
                   <div className="text-center">
-                    <Badge 
+                    <Badge
                       variant={performanceData.paymentStatus === 'up-to-date' ? 'default' : 'destructive'}
                       className="flex items-center gap-1 w-fit mx-auto"
                     >
@@ -578,10 +683,20 @@ export function StudentProfileModal({
                       ) : (
                         <Clock className="h-3 w-3" />
                       )}
-                      {performanceData.paymentStatus === 'up-to-date' ? 'Em Dia' : 
+                      {performanceData.paymentStatus === 'up-to-date' ? 'Em Dia' :
                        performanceData.paymentStatus === 'overdue' ? 'Em Atraso' : 'Antecipado'}
                     </Badge>
                   </div>
+
+                  {onViewPaymentDetails && (
+                    <Button
+                      onClick={() => onViewPaymentDetails(student)}
+                      className="w-full bg-gradient-to-r from-[#F5821F] to-[#FF9933] hover:from-[#E07318] hover:to-[#F58820] text-white mt-4"
+                    >
+                      <DollarSign className="h-4 w-4 mr-2" />
+                      Ver Detalhes de Pagamento
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
 

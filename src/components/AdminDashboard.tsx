@@ -40,6 +40,8 @@ import { CourseList } from "./shared/superadmin/CourseList";
 import { RegistrationList, Registration } from "./shared/reusable/RegistrationList";
 import { UsersList, SystemUser } from "./shared/UsersList";
 import { GradesList, Grade } from "./shared/GradesList";
+import { LaunchGradesModal } from "./shared/LaunchGradesModal";
+import { StudentPaymentDetailsModal } from "./shared/StudentPaymentDetailsModal";
 
 
 // Types
@@ -128,6 +130,16 @@ const [isLoadingRegistrations, setIsLoadingRegistrations] = useState(false);
   const [isTeacherProfileModalOpen, setIsTeacherProfileModalOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [isStudentProfileModalOpen, setIsStudentProfileModal] = useState(false);
+
+  const [launchGradesModal, setLaunchGradesModal] = useState({
+    isOpen: false,
+    classInfo: null as { id: number; name: string; course: string } | null
+  });
+
+  const [paymentDetailsModal, setPaymentDetailsModal] = useState({
+    isOpen: false,
+    studentInfo: null as Student | null
+  });
 
   // Estados para filtros
   const [paymentSearch, setPaymentSearch] = useState('');
@@ -614,6 +626,32 @@ const handleDeleteRegistration = async (registrationId: number) => {
     setSelectedStudent(null);
   };
 
+  const handleLaunchGrades = (classItem: Class) => {
+    setLaunchGradesModal({
+      isOpen: true,
+      classInfo: {
+        id: classItem.id,
+        name: classItem.nome || classItem.name || 'Turma',
+        course: classItem.disciplina || classItem.subject || 'Curso'
+      }
+    });
+  };
+
+  const handleCloseLaunchGrades = () => {
+    setLaunchGradesModal({ isOpen: false, classInfo: null });
+  };
+
+  const handleViewPaymentDetails = (student: Student) => {
+    setPaymentDetailsModal({
+      isOpen: true,
+      studentInfo: student
+    });
+  };
+
+  const handleClosePaymentDetails = () => {
+    setPaymentDetailsModal({ isOpen: false, studentInfo: null });
+  };
+
   const handleToggleTeacherStatus = (teacherId: number) => {
     setTeacherStats(prev => prev.map(t =>
       t.id === teacherId ? { ...t, status: t.status === "active" ? "inactive" : "active" } : t
@@ -975,34 +1013,14 @@ const mappedStudents = apiStudents.map((student: APIStudent) => {
         </div>
       </nav>
 
-      {/* Bottom Actions */}
-      <div className="p-3 border-t border-white/10 space-y-2">
-        <button
-          onClick={() => setGeneralSettingsModal(true)}
-          className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-200 hover:bg-white/10 transition-colors ${
-            !isSidebarOpen && 'justify-center'
-          }`}
-        >
-          <Settings className="h-5 w-5" />
-          {isSidebarOpen && <span className="text-sm">Configurações</span>}
-        </button>
-        
-        <button
-          onClick={async () => {
-            try {
-              await logout();
-              if (onLogout) onLogout();
-            } catch (e) {
-              console.error('Logout falhou', e);
-            }
-          }}
-          className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-red-300 hover:bg-red-500/20 transition-colors ${
-            !isSidebarOpen && 'justify-center'
-          }`}
-        >
-          <LogOut className="h-5 w-5" />
-          {isSidebarOpen && <span className="text-sm">Sair</span>}
-        </button>
+      {/* Bottom Info */}
+      <div className="p-3 border-t border-white/10">
+        {isSidebarOpen && (
+          <div className="px-4 py-3 bg-white/5 rounded-lg">
+            <p className="text-xs text-slate-400">Sistema Acadêmico ISAC</p>
+            <p className="text-xs text-slate-500 mt-1">Versão 1.0.0</p>
+          </div>
+        )}
       </div>
 
       {/* Toggle Button */}
@@ -1031,12 +1049,39 @@ const mappedStudents = apiStudents.map((student: APIStudent) => {
               Gerencie estudantes, docentes, turmas e cursos da instituição
             </p>
           </div>
-          
+
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 rounded-full border border-emerald-200">
               <div className="h-2 w-2 bg-emerald-500 rounded-full animate-pulse"></div>
               <span className="text-xs text-emerald-700 font-medium">Online</span>
             </div>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setGeneralSettingsModal(true)}
+              className="text-slate-600 hover:text-[#004B87] hover:bg-slate-100"
+              title="Configurações"
+            >
+              <Settings className="h-5 w-5" />
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={async () => {
+                try {
+                  await logout();
+                  if (onLogout) onLogout();
+                } catch (e) {
+                  console.error('Logout falhou', e);
+                }
+              }}
+              className="text-red-500 hover:text-red-600 hover:bg-red-50"
+              title="Sair"
+            >
+              <LogOut className="h-5 w-5" />
+            </Button>
           </div>
         </div>
       </header>
@@ -1277,6 +1322,7 @@ const mappedStudents = apiStudents.map((student: APIStudent) => {
               onDeleteClass={handleDeleteClass}
               onAddStudentToClass={handleAddStudentToClass}
               onAddStudent={handleOpenCreateStudentModal}
+              onLaunchGrades={handleLaunchGrades}
             />
           </TabsContent>
 
@@ -1425,6 +1471,7 @@ const mappedStudents = apiStudents.map((student: APIStudent) => {
       student={selectedStudent}
       currentUserRole="admin"
       onSave={handleSaveStudentProfile}
+      onViewPaymentDetails={handleViewPaymentDetails}
     />
 
     <GeneralSettingsModal
@@ -1463,6 +1510,27 @@ const mappedStudents = apiStudents.map((student: APIStudent) => {
   onSave={handleSaveRegistration}
   existingRegistrations={registrations} // ✅ ADICIONAR ESTA LINHA
 />
+
+    {launchGradesModal.classInfo && (
+      <LaunchGradesModal
+        isOpen={launchGradesModal.isOpen}
+        onClose={handleCloseLaunchGrades}
+        classInfo={launchGradesModal.classInfo}
+      />
+    )}
+
+    {paymentDetailsModal.studentInfo && (
+      <StudentPaymentDetailsModal
+        isOpen={paymentDetailsModal.isOpen}
+        onClose={handleClosePaymentDetails}
+        student={{
+          id: paymentDetailsModal.studentInfo.id,
+          name: paymentDetailsModal.studentInfo.name,
+          course: paymentDetailsModal.studentInfo.className,
+          enrollmentDate: paymentDetailsModal.studentInfo.enrollmentDate
+        }}
+      />
+    )}
   </div>
 );
 }
