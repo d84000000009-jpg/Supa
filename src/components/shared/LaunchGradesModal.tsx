@@ -117,53 +117,53 @@ export function LaunchGradesModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-[95vw] max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="text-2xl font-bold text-[#004B87] flex items-center gap-2">
-            <Award className="h-6 w-6" />
+      <DialogContent className="max-w-6xl max-h-[85vh] overflow-hidden flex flex-col p-4">
+        <DialogHeader className="pb-2">
+          <DialogTitle className="text-xl font-bold text-[#004B87] flex items-center gap-2">
+            <Award className="h-5 w-5" />
             Lançamento de Notas - {classInfo.name}
           </DialogTitle>
-          <p className="text-sm text-slate-600">Curso: {classInfo.course}</p>
+          <p className="text-xs text-slate-600">Curso: {classInfo.course}</p>
         </DialogHeader>
 
-        <div className="flex gap-3 mb-4">
+        <div className="flex gap-2 mb-3">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <Input
               placeholder="Buscar estudante..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
+              className="pl-9 h-9 text-sm"
             />
           </div>
           <Button
             onClick={handleSaveGrades}
-            className="bg-[#F5821F] hover:bg-[#E07318] text-white"
+            className="bg-[#F5821F] hover:bg-[#E07318] text-white h-9 px-4 text-sm"
           >
-            <Save className="h-4 w-4 mr-2" />
-            Salvar Notas
+            <Save className="h-3 w-3 mr-2" />
+            Salvar
           </Button>
           <Button
             onClick={handleExportGrades}
             variant="outline"
-            className="border-2"
+            className="border-2 h-9 px-4 text-sm"
           >
-            <Download className="h-4 w-4 mr-2" />
+            <Download className="h-3 w-3 mr-2" />
             Exportar
           </Button>
         </div>
 
         <div className="flex-1 overflow-auto">
-          <div className="min-w-[1000px]">
-            <div className="bg-gradient-to-r from-[#004B87] to-[#0066B3] text-white rounded-t-xl sticky top-0 z-10">
-              <div className="grid grid-cols-12 gap-2 px-4 py-3 font-semibold text-sm">
+          <div className="min-w-[900px]">
+            <div className="bg-gradient-to-r from-[#004B87] to-[#0066B3] text-white rounded-t-lg sticky top-0 z-10">
+              <div className="grid grid-cols-12 gap-2 px-3 py-2 font-semibold text-xs">
                 <div className="col-span-3">Estudante</div>
-                <div className="col-span-1 text-center">1ª Aval.</div>
-                <div className="col-span-1 text-center">2ª Aval.</div>
-                <div className="col-span-1 text-center">3ª Aval.</div>
-                <div className="col-span-1 text-center">4ª Aval.</div>
+                <div className="col-span-1 text-center">1ª</div>
+                <div className="col-span-1 text-center">2ª</div>
+                <div className="col-span-1 text-center">3ª</div>
+                <div className="col-span-1 text-center">4ª</div>
                 <div className="col-span-2 text-center">Média</div>
-                <div className="col-span-2 text-center">Resultado Final</div>
+                <div className="col-span-2 text-center">Resultado</div>
                 <div className="col-span-1 text-center">Status</div>
               </div>
             </div>
@@ -176,19 +176,19 @@ export function LaunchGradesModal({
                 return (
                   <div
                     key={student.id}
-                    className={`grid grid-cols-12 gap-2 px-4 py-3 hover:bg-slate-50 transition-colors ${
+                    className={`grid grid-cols-12 gap-2 px-3 py-2 hover:bg-slate-50 transition-colors ${
                       index % 2 === 0 ? "bg-white" : "bg-slate-50/50"
                     }`}
                   >
                     <div className="col-span-3 flex items-center gap-2">
-                      <div className="h-10 w-10 bg-gradient-to-br from-[#004B87] to-[#0066B3] rounded-full flex items-center justify-center flex-shrink-0">
-                        <span className="text-white font-bold text-sm">
+                      <div className="h-8 w-8 bg-gradient-to-br from-[#004B87] to-[#0066B3] rounded-full flex items-center justify-center flex-shrink-0">
+                        <span className="text-white font-bold text-xs">
                           {student.name.charAt(0)}
                         </span>
                       </div>
                       <div>
-                        <p className="font-semibold text-sm text-slate-800">{student.name}</p>
-                        <p className="text-xs text-slate-500">Nº {student.id}</p>
+                        <p className="font-semibold text-xs text-slate-800">{student.name}</p>
+                        <p className="text-[10px] text-slate-500">Nº {student.id}</p>
                       </div>
                     </div>
 
@@ -200,7 +200,7 @@ export function LaunchGradesModal({
                         step="0.5"
                         value={student.evaluation1}
                         onChange={(e) => handleGradeChange(student.id, "evaluation1", e.target.value)}
-                        className={`text-center h-10 font-bold ${getGradeColor(student.evaluation1)}`}
+                        className={`text-center h-8 font-bold text-sm ${getGradeColor(student.evaluation1)}`}
                       />
                     </div>
 
@@ -212,7 +212,7 @@ export function LaunchGradesModal({
                         step="0.5"
                         value={student.evaluation2}
                         onChange={(e) => handleGradeChange(student.id, "evaluation2", e.target.value)}
-                        className={`text-center h-10 font-bold ${getGradeColor(student.evaluation2)}`}
+                        className={`text-center h-8 font-bold text-sm ${getGradeColor(student.evaluation2)}`}
                       />
                     </div>
 
@@ -224,7 +224,7 @@ export function LaunchGradesModal({
                         step="0.5"
                         value={student.evaluation3}
                         onChange={(e) => handleGradeChange(student.id, "evaluation3", e.target.value)}
-                        className={`text-center h-10 font-bold ${getGradeColor(student.evaluation3)}`}
+                        className={`text-center h-8 font-bold text-sm ${getGradeColor(student.evaluation3)}`}
                       />
                     </div>
 
@@ -236,14 +236,14 @@ export function LaunchGradesModal({
                         step="0.5"
                         value={student.evaluation4}
                         onChange={(e) => handleGradeChange(student.id, "evaluation4", e.target.value)}
-                        className={`text-center h-10 font-bold ${getGradeColor(student.evaluation4)}`}
+                        className={`text-center h-8 font-bold text-sm ${getGradeColor(student.evaluation4)}`}
                       />
                     </div>
 
                     <div className="col-span-2 flex items-center justify-center">
-                      <div className="flex items-center gap-2">
-                        <TrendingUp className="h-4 w-4 text-blue-500" />
-                        <span className={`text-2xl font-bold ${getGradeColor(average.toString())}`}>
+                      <div className="flex items-center gap-1">
+                        <TrendingUp className="h-3 w-3 text-blue-500" />
+                        <span className={`text-lg font-bold ${getGradeColor(average.toString())}`}>
                           {average.toFixed(1)}
                         </span>
                       </div>
@@ -257,12 +257,12 @@ export function LaunchGradesModal({
                         step="0.5"
                         value={student.finalResult}
                         onChange={(e) => handleGradeChange(student.id, "finalResult", e.target.value)}
-                        className={`text-center h-10 text-lg font-bold ${getGradeColor(student.finalResult)}`}
+                        className={`text-center h-8 text-base font-bold ${getGradeColor(student.finalResult)}`}
                       />
                     </div>
 
                     <div className="col-span-1 flex items-center justify-center">
-                      <Badge className={`${status.color} border-0 text-xs`}>
+                      <Badge className={`${status.color} border-0 text-[10px] px-2 py-0`}>
                         {status.label}
                       </Badge>
                     </div>
@@ -273,18 +273,18 @@ export function LaunchGradesModal({
           </div>
         </div>
 
-        <div className="pt-4 border-t border-slate-200 flex justify-between items-center">
-          <div className="flex gap-4 text-sm text-slate-600">
-            <div className="flex items-center gap-2">
-              <CheckCircle className="h-4 w-4 text-green-600" />
-              <span>Aprovados: {students.filter(s => Number(s.finalResult) >= 10).length}</span>
+        <div className="pt-3 border-t border-slate-200 flex justify-between items-center">
+          <div className="flex gap-3 text-xs text-slate-600">
+            <div className="flex items-center gap-1 px-2 py-1 bg-green-50 rounded-md">
+              <CheckCircle className="h-3 w-3 text-green-600" />
+              <span className="font-medium">Aprovados: {students.filter(s => Number(s.finalResult) >= 10).length}</span>
             </div>
-            <div className="flex items-center gap-2">
-              <AlertCircle className="h-4 w-4 text-red-600" />
-              <span>Reprovados: {students.filter(s => Number(s.finalResult) < 10).length}</span>
+            <div className="flex items-center gap-1 px-2 py-1 bg-red-50 rounded-md">
+              <AlertCircle className="h-3 w-3 text-red-600" />
+              <span className="font-medium">Reprovados: {students.filter(s => Number(s.finalResult) < 10).length}</span>
             </div>
           </div>
-          <Button variant="ghost" onClick={onClose}>
+          <Button variant="ghost" onClick={onClose} className="h-8 text-sm">
             Fechar
           </Button>
         </div>

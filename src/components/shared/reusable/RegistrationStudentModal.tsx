@@ -105,6 +105,7 @@ export function RegistrationStudentModal({
   const [studentSearch, setStudentSearch] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showChatPrompt, setShowChatPrompt] = useState(false);
+  const [showReceiptPrompt, setShowReceiptPrompt] = useState(false);
 
   const [formData, setFormData] = useState<RegistrationFormData>(buildInitialFormData);
   const [formErrors, setFormErrors] = useState<RegistrationFormErrors>({});
@@ -356,7 +357,9 @@ export function RegistrationStudentModal({
 
     onSave(mappedData as any);
     toast.success(isEditing ? "Matrícula atualizada!" : "Matrícula realizada com sucesso!");
-    onClose();
+
+    // Mostrar prompt de recibo após salvar
+    setShowReceiptPrompt(true);
   };
 
   const handlePrintReceipt = () => {
@@ -567,17 +570,6 @@ export function RegistrationStudentModal({
               </Button>
 
               <div className="flex gap-3">
-                {activeTab === "credentials" && (
-                  <Button
-                    onClick={handlePrintReceipt}
-                    variant="outline"
-                    className="border-2 border-[#004B87] text-[#004B87] hover:bg-[#004B87] hover:text-white px-6 h-12 rounded-xl flex gap-2 font-bold transition-all"
-                  >
-                    <Printer className="h-4 w-4" />
-                    Imprimir Recibo
-                  </Button>
-                )}
-
                 {activeTab !== "credentials" ? (
                   <Button
                     onClick={validateAndNext}
@@ -604,6 +596,47 @@ export function RegistrationStudentModal({
             >
               <MessageCircle className="h-6 w-6" />
             </button>
+
+            {/* RECEIPT PROMPT MODAL */}
+            {showReceiptPrompt && (
+              <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+                <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
+                  <div className="text-center mb-6">
+                    <div className="h-16 w-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Printer className="h-8 w-8 text-green-600" />
+                    </div>
+                    <h3 className="text-2xl font-bold text-[#004B87] mb-2">Matrícula Concluída!</h3>
+                    <p className="text-slate-600">
+                      Deseja imprimir o recibo de matrícula?
+                    </p>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setShowReceiptPrompt(false);
+                        onClose();
+                      }}
+                      className="flex-1"
+                    >
+                      Não, Obrigado
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        handlePrintReceipt();
+                        setShowReceiptPrompt(false);
+                        onClose();
+                      }}
+                      className="flex-1 bg-gradient-to-r from-[#F5821F] to-[#FF9933] hover:from-[#E07318] hover:to-[#F58820] text-white"
+                    >
+                      <Printer className="h-4 w-4 mr-2" />
+                      Sim, Imprimir
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* CHAT PROMPT MODAL */}
             {showChatPrompt && (

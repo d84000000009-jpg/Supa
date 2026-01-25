@@ -16,8 +16,8 @@ import { Input } from "@/components/ui/input";
 import {
   Users, BookOpen, DollarSign, Settings, UserPlus, GraduationCap,
   LogOut, Shield, BarChart3, AlertTriangle, CheckCircle, TrendingUp,
-  Search, Receipt, Eye, Trash2, Mail, Phone, X, Menu, ChevronLeft, 
-  ChevronRight, Home, FileText 
+  Search, Receipt, Eye, Trash2, Mail, Phone, X, Menu, ChevronLeft,
+  ChevronRight, Home, FileText, MessageCircle
 } from "lucide-react";
 
 // Import dos componentes compartilhados
@@ -140,6 +140,9 @@ const [isLoadingRegistrations, setIsLoadingRegistrations] = useState(false);
     isOpen: false,
     studentInfo: null as Student | null
   });
+
+  const [showChatModal, setShowChatModal] = useState(false);
+  const [chatMessage, setChatMessage] = useState("");
 
   // Estados para filtros
   const [paymentSearch, setPaymentSearch] = useState('');
@@ -1051,20 +1054,21 @@ const mappedStudents = apiStudents.map((student: APIStudent) => {
           </div>
 
           <div className="flex items-center gap-3">
+            {/* User Info with Avatar */}
+            <div className="flex items-center gap-3 px-4 py-2 bg-slate-50 rounded-full border border-slate-200">
+              <div className="h-8 w-8 bg-gradient-to-br from-[#F5821F] to-[#FF9933] rounded-full flex items-center justify-center font-bold text-white shadow-md flex-shrink-0">
+                {displayName.charAt(0)}
+              </div>
+              <div className="flex flex-col">
+                <span className="text-sm font-semibold text-slate-800">{displayName}</span>
+                <span className="text-xs text-slate-500">Super Admin</span>
+              </div>
+            </div>
+
             <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 rounded-full border border-emerald-200">
               <div className="h-2 w-2 bg-emerald-500 rounded-full animate-pulse"></div>
               <span className="text-xs text-emerald-700 font-medium">Online</span>
             </div>
-
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setGeneralSettingsModal(true)}
-              className="text-slate-600 hover:text-[#004B87] hover:bg-slate-100"
-              title="Configurações"
-            >
-              <Settings className="h-5 w-5" />
-            </Button>
 
             <Button
               variant="ghost"
@@ -1530,6 +1534,61 @@ const mappedStudents = apiStudents.map((student: APIStudent) => {
           enrollmentDate: paymentDetailsModal.studentInfo.enrollmentDate
         }}
       />
+    )}
+
+    {/* FLOATING CHAT BUTTON */}
+    <button
+      onClick={() => setShowChatModal(true)}
+      className="fixed bottom-6 right-6 h-16 w-16 bg-gradient-to-r from-[#F5821F] to-[#FF9933] hover:from-[#E07318] hover:to-[#F58820] text-white rounded-full shadow-2xl flex items-center justify-center transition-all hover:scale-110 active:scale-95 z-50"
+      title="Mensagens"
+    >
+      <MessageCircle className="h-7 w-7" />
+    </button>
+
+    {/* CHAT MODAL */}
+    {showChatModal && (
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-lg w-full">
+          <h3 className="text-2xl font-bold text-[#004B87] mb-4">Enviar Mensagem</h3>
+          <p className="text-slate-600 mb-6">
+            Envie uma mensagem para os usuários do sistema
+          </p>
+
+          <textarea
+            className="w-full h-40 p-4 border-2 border-slate-200 rounded-xl focus:border-[#F5821F] focus:outline-none resize-none mb-4 text-sm"
+            placeholder="Digite sua mensagem aqui..."
+            value={chatMessage}
+            onChange={(e) => setChatMessage(e.target.value)}
+          />
+
+          <div className="flex gap-3">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setShowChatModal(false);
+                setChatMessage("");
+              }}
+              className="flex-1"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => {
+                if (chatMessage.trim()) {
+                  toast.success("Mensagem enviada com sucesso!");
+                  setShowChatModal(false);
+                  setChatMessage("");
+                } else {
+                  toast.error("Digite uma mensagem");
+                }
+              }}
+              className="flex-1 bg-gradient-to-r from-[#F5821F] to-[#FF9933] hover:from-[#E07318] hover:to-[#F58820] text-white"
+            >
+              Enviar
+            </Button>
+          </div>
+        </div>
+      </div>
     )}
   </div>
 );

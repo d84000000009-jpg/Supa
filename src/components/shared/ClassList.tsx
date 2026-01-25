@@ -402,16 +402,16 @@ export function ClassList({
                       </div>
                     </div>
 
-                    {/* Botão de Deletar */}
-                    {permissions.canDelete && currentUserRole === 'admin' && onDeleteClass && classItem.id && (
-                      <Button 
-                        variant="ghost" 
+                    {/* Botão de Configurações */}
+                    {permissions.canEdit && (
+                      <Button
+                        variant="ghost"
                         size="icon"
-                        className="h-8 w-8 rounded-full bg-red-50 text-red-500 hover:bg-red-100 hover:text-red-600 border-2 border-red-200 hover:border-red-300 transition-all duration-200"
-                        onClick={() => onDeleteClass(classItem.id!)}
-                        title="Remover turma"
+                        className="h-8 w-8 rounded-full bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-[#004B87] border-2 border-slate-200 hover:border-[#004B87] transition-all duration-200"
+                        onClick={() => onManageClass(classItem)}
+                        title="Configurações da turma"
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
+                        <Settings className="h-3.5 w-3.5" />
                       </Button>
                     )}
                   </div>
