@@ -44,6 +44,7 @@ export interface Registration {
   monthlyFee: number;
   modules?: string[];
   observations?: string;
+  registrationType?: 'new' | 'renewal' | 'transfer';
 }
 
 interface RegistrationListProps {

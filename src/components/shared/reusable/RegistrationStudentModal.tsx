@@ -79,6 +79,7 @@ const buildInitialFormData = (): RegistrationFormData => ({
   observations: "",
   username: "",
   password: "",
+  registrationType: "new",
 });
 
 export function RegistrationStudentModal({
@@ -274,6 +275,7 @@ export function RegistrationStudentModal({
   const validateForm = (): boolean => {
     const errors: RegistrationFormErrors = {};
 
+    if (!formData.registrationType) errors.registrationType = "Selecione o tipo de inscrição";
     if (!formData.studentId || formData.studentId === 0) errors.studentId = "Selecione um estudante";
     if (!formData.courseId) errors.courseId = "Selecione um curso";
     if (!formData.username?.trim()) errors.username = "Usuário é obrigatório";
@@ -286,9 +288,15 @@ export function RegistrationStudentModal({
   };
 
   const validateAndNext = () => {
-    if (activeTab === "student" && (!formData.studentId || formData.studentId === 0)) {
-      toast.error("Selecione um estudante primeiro");
-      return;
+    if (activeTab === "student") {
+      if (!formData.registrationType) {
+        toast.error("Selecione o tipo de inscrição primeiro");
+        return;
+      }
+      if (!formData.studentId || formData.studentId === 0) {
+        toast.error("Selecione um estudante primeiro");
+        return;
+      }
     }
 
     if (activeTab === "course" && !formData.courseId) {
@@ -337,6 +345,7 @@ export function RegistrationStudentModal({
       username: formData.username,
       password: formData.password,
       observations: formData.observations,
+      registration_type: formData.registrationType,
     };
 
     console.log("📋 FormData ANTES do mapeamento:", formData);

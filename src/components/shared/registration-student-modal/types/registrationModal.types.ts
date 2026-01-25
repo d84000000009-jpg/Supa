@@ -13,6 +13,9 @@ export type FormErrors = Record<string, string>;
 export type RegistrationStatus = "active" | "suspended" | "cancelled" | "completed";
 export type PaymentStatus = "paid" | "pending" | "overdue";
 
+/** Tipo de inscrição */
+export type RegistrationType = "new" | "renewal" | "transfer";
+
 
 
 
@@ -35,6 +38,8 @@ export interface StudentItem {
   // outros campos que podem aparecer
   [key: string]: unknown;
 }
+
+export type StudentDTO = StudentItem;
 
 /** Estrutura mínima do curso que o modal precisa */
 export interface CourseItem {

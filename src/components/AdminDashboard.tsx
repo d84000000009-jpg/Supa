@@ -35,10 +35,11 @@ import { PaymentManagementModal } from "./shared/superadmin/PaymentManagementMod
 import { GeneralSettingsModal } from "./shared/GeneralSettingsModal";
 import { TeacherProfileModal } from "./shared/TeacherProfileModal";
 import { StudentProfileModal } from "./shared/StudentProfileModal";
-// ✅ CORRETO - Default Import
 import CreateCourseModal from '@/components/shared/superadmin/CreateCourseModal';
 import { CourseList } from "./shared/superadmin/CourseList";
 import { RegistrationList, Registration } from "./shared/reusable/RegistrationList";
+import { UsersList, SystemUser } from "./shared/UsersList";
+import { GradesList, Grade } from "./shared/GradesList";
 
 
 // Types
@@ -58,7 +59,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const displayName = user ? user.nome : 'Admin';
 
   // ✅ Estados de navegação
-const [activeView, setActiveView] = useState<'dashboard' | 'students' | 'teachers' | 'classes' | 'courses' | 'payments' | 'registrations'>('dashboard');  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+const [activeView, setActiveView] = useState<'dashboard' | 'students' | 'teachers' | 'classes' | 'courses' | 'payments' | 'registrations' | 'users' | 'grades'>('dashboard');  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   // ✅ Estados de dados REAIS
   const [students, setStudents] = useState<Student[]>([]);
@@ -132,15 +133,21 @@ const [isLoadingRegistrations, setIsLoadingRegistrations] = useState(false);
   const [paymentSearch, setPaymentSearch] = useState('');
   const [paymentFilter, setPaymentFilter] = useState('all');
 
+  // Estados para usuários e notas
+  const [systemUsers, setSystemUsers] = useState<SystemUser[]>([]);
+  const [gradesData, setGradesData] = useState<Grade[]>([]);
+
   // Menu items para sidebar
 const menuItems = [
   { id: 'dashboard', label: 'Dashboard', icon: Home },
   { id: 'students', label: 'Estudantes', icon: GraduationCap },
-    { id: 'registrations', label: 'Matrículas', icon: FileText }, // 🆕 NOVO
+    { id: 'registrations', label: 'Matrículas', icon: FileText },
   { id: 'teachers', label: 'Docentes', icon: Users },
   { id: 'classes', label: 'Turmas', icon: BookOpen },
   { id: 'courses', label: 'Cursos', icon: BookOpen },
   { id: 'payments', label: 'Pagamentos', icon: DollarSign },
+  { id: 'users', label: 'Usuários', icon: Shield },
+  { id: 'grades', label: 'Notas', icon: BarChart3 },
 ];
 
   // ✅ Verificar autenticação ao montar
@@ -154,6 +161,22 @@ const menuItems = [
       console.log('❌ Usuário não autenticado, redirecionando...');
       window.location.href = '/login';
     }
+  }, [isAuthenticated]);
+
+  // 🆕 Carregar dados de usuários fictícios
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const mockUsers: SystemUser[] = [
+      { id: 1, name: "Admin ISAC", email: "admin@isac.ac.mz", role: "admin", status: "active", createdAt: "2024-01-15", lastLogin: "2025-01-25" },
+      { id: 2, name: "João Silva", email: "joao.silva@isac.ac.mz", role: "teacher", status: "active", createdAt: "2024-02-20", lastLogin: "2025-01-24", phone: "+258 84 123 4567" },
+      { id: 3, name: "Maria Santos", email: "maria.santos@isac.ac.mz", role: "teacher", status: "active", createdAt: "2024-03-10", lastLogin: "2025-01-23", phone: "+258 85 234 5678" },
+      { id: 4, name: "Pedro Costa", email: "pedro.costa@estudante.isac.ac.mz", role: "student", status: "active", createdAt: "2024-09-01", lastLogin: "2025-01-25", phone: "+258 86 345 6789" },
+      { id: 5, name: "Ana Lopes", email: "ana.lopes@estudante.isac.ac.mz", role: "student", status: "active", createdAt: "2024-09-01", lastLogin: "2025-01-24", phone: "+258 87 456 7890" },
+      { id: 6, name: "Carlos Mendes", email: "carlos.mendes@estudante.isac.ac.mz", role: "student", status: "inactive", createdAt: "2024-09-01", phone: "+258 84 567 8901" },
+    ];
+
+    setSystemUsers(mockUsers);
   }, [isAuthenticated]);
 
   // ✅ Carregar dados da API
@@ -1022,9 +1045,9 @@ const mappedStudents = apiStudents.map((student: APIStudent) => {
       <div className="p-8">
         <Tabs value={activeView} onValueChange={(v) => setActiveView(v as any)} className="space-y-6">
           <TabsContent value="dashboard" className="space-y-6 mt-0">
-            {/* Stats Grid */}
+            {/* Stats Grid - MELHORADO COM MAIS CARDS */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <Card className="border-l-4 border-l-blue-500 shadow-lg hover:shadow-xl transition-shadow">
+              <Card className="border-l-4 border-l-blue-500 shadow-lg hover:shadow-xl transition-all hover:scale-105 duration-300">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm flex items-center gap-2 text-slate-600">
                     <GraduationCap className="h-4 w-4 text-blue-500" />
@@ -1037,7 +1060,7 @@ const mappedStudents = apiStudents.map((student: APIStudent) => {
                 </CardContent>
               </Card>
 
-              <Card className="border-l-4 border-l-purple-500 shadow-lg hover:shadow-xl transition-shadow">
+              <Card className="border-l-4 border-l-purple-500 shadow-lg hover:shadow-xl transition-all hover:scale-105 duration-300">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm flex items-center gap-2 text-slate-600">
                     <Users className="h-4 w-4 text-purple-500" />
@@ -1050,7 +1073,33 @@ const mappedStudents = apiStudents.map((student: APIStudent) => {
                 </CardContent>
               </Card>
 
-              <Card className="border-l-4 border-l-green-500 shadow-lg hover:shadow-xl transition-shadow">
+              <Card className="border-l-4 border-l-orange-500 shadow-lg hover:shadow-xl transition-all hover:scale-105 duration-300">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center gap-2 text-slate-600">
+                    <BookOpen className="h-4 w-4 text-orange-500" />
+                    Turmas
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-orange-600">{stats.totalClasses}</div>
+                  <p className="text-xs text-slate-500 mt-1">Total de turmas</p>
+                </CardContent>
+              </Card>
+
+              <Card className="border-l-4 border-l-cyan-500 shadow-lg hover:shadow-xl transition-all hover:scale-105 duration-300">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center gap-2 text-slate-600">
+                    <FileText className="h-4 w-4 text-cyan-500" />
+                    Matrículas
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-cyan-600">{registrations.length}</div>
+                  <p className="text-xs text-slate-500 mt-1">Matrículas ativas</p>
+                </CardContent>
+              </Card>
+
+              <Card className="border-l-4 border-l-green-500 shadow-lg hover:shadow-xl transition-all hover:scale-105 duration-300">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm flex items-center gap-2 text-slate-600">
                     <DollarSign className="h-4 w-4 text-green-500" />
@@ -1063,7 +1112,7 @@ const mappedStudents = apiStudents.map((student: APIStudent) => {
                 </CardContent>
               </Card>
 
-              <Card className="border-l-4 border-l-red-500 shadow-lg hover:shadow-xl transition-shadow">
+              <Card className="border-l-4 border-l-red-500 shadow-lg hover:shadow-xl transition-all hover:scale-105 duration-300">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm flex items-center gap-2 text-slate-600">
                     <AlertTriangle className="h-4 w-4 text-red-500" />
@@ -1073,6 +1122,32 @@ const mappedStudents = apiStudents.map((student: APIStudent) => {
                 <CardContent>
                   <div className="text-3xl font-bold text-red-600">{stats.studentsInDebt}</div>
                   <p className="text-xs text-slate-500 mt-1">Estudantes devendo</p>
+                </CardContent>
+              </Card>
+
+              <Card className="border-l-4 border-l-pink-500 shadow-lg hover:shadow-xl transition-all hover:scale-105 duration-300">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center gap-2 text-slate-600">
+                    <Shield className="h-4 w-4 text-pink-500" />
+                    Usuários
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-pink-600">{systemUsers.length}</div>
+                  <p className="text-xs text-slate-500 mt-1">Total no sistema</p>
+                </CardContent>
+              </Card>
+
+              <Card className="border-l-4 border-l-indigo-500 shadow-lg hover:shadow-xl transition-all hover:scale-105 duration-300">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center gap-2 text-slate-600">
+                    <BarChart3 className="h-4 w-4 text-indigo-500" />
+                    Taxa de Aprovação
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-indigo-600">87%</div>
+                  <p className="text-xs text-slate-500 mt-1">Média geral</p>
                 </CardContent>
               </Card>
             </div>
@@ -1234,6 +1309,20 @@ const mappedStudents = apiStudents.map((student: APIStudent) => {
               formatCurrency={formatCurrency}
               getStudentPaymentInfo={getStudentPaymentInfo}
             />
+          </TabsContent>
+
+          <TabsContent value="users" className="mt-0">
+            <UsersList
+              users={systemUsers}
+              permissions={adminPermissions}
+              onViewUser={(user) => console.log('Ver usuário:', user)}
+              onEditUser={(user) => console.log('Editar usuário:', user)}
+              onDeleteUser={(userId) => console.log('Remover usuário:', userId)}
+            />
+          </TabsContent>
+
+          <TabsContent value="grades" className="mt-0">
+            <GradesList grades={gradesData} />
           </TabsContent>
         </Tabs>
       </div>

@@ -2,6 +2,7 @@
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
   AlertCircle,
@@ -9,6 +10,9 @@ import {
   GraduationCap,
   Search,
   User,
+  UserPlus,
+  RefreshCw,
+  ArrowRightLeft,
 } from "lucide-react";
 import type {
   RegistrationFormData,
@@ -27,12 +31,16 @@ interface StudentTabProps {
 
   // busca / loading
   studentSearch: string;
-  setStudentSearch: (value: string) => void;
+  onStudentSearchChange: (value: string) => void;
   isLoadingStudents: boolean;
 
   // ações
   onSelectStudent: (student: StudentDTO) => void;
   onClearStudent: () => void;
+  onChangeField: (field: keyof RegistrationFormData, value: any) => void;
+
+  // lista já filtrada
+  filteredStudents: StudentDTO[];
 }
 
 export function StudentTab({
@@ -41,34 +49,129 @@ export function StudentTab({
   students,
   selectedStudent,
   studentSearch,
-  setStudentSearch,
+  onStudentSearchChange,
   isLoadingStudents,
   onSelectStudent,
   onClearStudent,
+  onChangeField,
+  filteredStudents,
 }: StudentTabProps) {
-  const filteredStudents = students.filter((student) => {
-    // 1) não mostrar na lista o estudante já selecionado
-    if (formData.studentId && student.id === formData.studentId) return false;
-
-    // 2) filtro de busca
-    const q = studentSearch.toLowerCase();
-    const name = (student.name ?? "").toLowerCase();
-    const email = (student.email ?? "").toLowerCase();
-    const enrollment = (student.enrollment_number ?? "").toLowerCase();
-
-    return name.includes(q) || email.includes(q) || enrollment.includes(q);
-  });
-
   const hasSelected = Boolean(formData.studentId && formData.studentId > 0 && selectedStudent);
+
+  const registrationTypes = [
+    {
+      id: 'new' as const,
+      label: 'Novo Estudante',
+      description: 'Primeira matrícula no curso',
+      icon: UserPlus,
+      color: 'from-green-500 to-emerald-600',
+      bgColor: 'bg-green-50',
+      borderColor: 'border-green-300',
+      textColor: 'text-green-700'
+    },
+    {
+      id: 'renewal' as const,
+      label: 'Renovação',
+      description: 'Estudante já matriculado anteriormente',
+      icon: RefreshCw,
+      color: 'from-blue-500 to-cyan-600',
+      bgColor: 'bg-blue-50',
+      borderColor: 'border-blue-300',
+      textColor: 'text-blue-700'
+    },
+    {
+      id: 'transfer' as const,
+      label: 'Transferência',
+      description: 'Transferência de outra instituição',
+      icon: ArrowRightLeft,
+      color: 'from-purple-500 to-violet-600',
+      bgColor: 'bg-purple-50',
+      borderColor: 'border-purple-300',
+      textColor: 'text-purple-700'
+    },
+  ];
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-400">
+      {/* Tipo de Inscrição */}
+      <section>
+        <Label className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-4 block">
+          Tipo de Inscrição <span className="text-red-500">*</span>
+        </Label>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {registrationTypes.map((type) => {
+            const Icon = type.icon;
+            const isSelected = formData.registrationType === type.id;
+
+            return (
+              <button
+                key={type.id}
+                type="button"
+                onClick={() => onChangeField('registrationType', type.id)}
+                className={cn(
+                  "relative p-5 rounded-xl border-2 transition-all duration-200 text-left group",
+                  isSelected
+                    ? `${type.borderColor} ${type.bgColor} shadow-lg`
+                    : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-md"
+                )}
+              >
+                {isSelected && (
+                  <div className="absolute -top-2 -right-2">
+                    <div className={`h-6 w-6 bg-gradient-to-br ${type.color} rounded-full flex items-center justify-center shadow-md`}>
+                      <CheckCircle2 className="h-4 w-4 text-white" />
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex items-start gap-3">
+                  <div className={cn(
+                    "h-12 w-12 rounded-lg flex items-center justify-center transition-all",
+                    isSelected
+                      ? `bg-gradient-to-br ${type.color} shadow-md`
+                      : "bg-slate-100 group-hover:bg-slate-200"
+                  )}>
+                    <Icon className={cn(
+                      "h-6 w-6",
+                      isSelected ? "text-white" : "text-slate-600"
+                    )} />
+                  </div>
+
+                  <div className="flex-1">
+                    <h3 className={cn(
+                      "font-bold text-sm mb-1",
+                      isSelected ? type.textColor : "text-slate-800"
+                    )}>
+                      {type.label}
+                    </h3>
+                    <p className={cn(
+                      "text-xs leading-relaxed",
+                      isSelected ? type.textColor : "text-slate-500"
+                    )}>
+                      {type.description}
+                    </p>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        {formErrors.registrationType && (
+          <p className="text-xs text-red-600 flex items-center gap-1 mt-3">
+            <AlertCircle className="h-3 w-3" />
+            {formErrors.registrationType}
+          </p>
+        )}
+      </section>
+
       {/* Estudante Selecionado */}
       {hasSelected ? (
         <SelectedStudentCard
           student={selectedStudent!}
           studentCode={formData.studentCode || ""}
           onClear={onClearStudent}
+          registrationType={formData.registrationType}
         />
       ) : (
         <div>
@@ -83,7 +186,7 @@ export function StudentTab({
               <Input
                 placeholder="Digite o nome, email ou código do estudante..."
                 value={studentSearch}
-                onChange={(e) => setStudentSearch(e.target.value)}
+                onChange={(e) => onStudentSearchChange(e.target.value)}
                 className="pl-12 h-12 border-2 border-slate-200 rounded-xl focus:border-[#F5821F]"
               />
             </div>
@@ -173,11 +276,30 @@ function SelectedStudentCard({
   student,
   studentCode,
   onClear,
+  registrationType,
 }: {
   student: StudentDTO;
   studentCode: string;
   onClear: () => void;
+  registrationType?: 'new' | 'renewal' | 'transfer';
 }) {
+  const getRegistrationTypeBadge = () => {
+    if (!registrationType) return null;
+
+    const badges = {
+      new: { label: 'Novo Estudante', color: 'bg-green-500' },
+      renewal: { label: 'Renovação', color: 'bg-blue-500' },
+      transfer: { label: 'Transferência', color: 'bg-purple-500' },
+    };
+
+    const badge = badges[registrationType];
+    return (
+      <Badge className={`${badge.color} text-white border-0 text-[10px] ml-2`}>
+        {badge.label}
+      </Badge>
+    );
+  };
+
   return (
     <div className="relative">
       <div className="bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 border-2 border-green-400 rounded-2xl p-6 shadow-lg">
@@ -185,6 +307,7 @@ function SelectedStudentCard({
         <div className="absolute -top-3 left-6 bg-green-500 text-white px-4 py-1 rounded-full text-xs font-bold shadow-md flex items-center gap-1">
           <CheckCircle2 className="h-3 w-3" />
           ESTUDANTE SELECIONADO
+          {getRegistrationTypeBadge()}
         </div>
 
         <div className="flex items-center gap-5 mt-2">
