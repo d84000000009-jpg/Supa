@@ -35,6 +35,7 @@ import { PaymentManagementModal } from "./shared/superadmin/PaymentManagementMod
 import { GeneralSettingsModal } from "./shared/GeneralSettingsModal";
 import { TeacherProfileModal } from "./shared/TeacherProfileModal";
 import { StudentProfileModal } from "./shared/StudentProfileModal";
+import { StudentPaymentManagementModal } from "./shared/StudentPaymentManagementModal";
 import CreateCourseModal from '@/components/shared/superadmin/CreateCourseModal';
 import { CourseList } from "./shared/superadmin/CourseList";
 import { RegistrationList, Registration } from "./shared/reusable/RegistrationList";
@@ -123,7 +124,8 @@ const [isLoadingRegistrations, setIsLoadingRegistrations] = useState(false);
 
   const [paymentModal, setPaymentModal] = useState({
     isOpen: false,
-    studentId: 0
+    studentId: 0,
+    paymentData: null as any
   });
 
   const [selectedTeacher, setSelectedTeacher] = useState<any | null>(null);
@@ -888,7 +890,38 @@ const mappedStudents = apiStudents.map((student: APIStudent) => {
   };
 
   const handleOpenPaymentModal = (studentId: number) => {
-    setPaymentModal({ isOpen: true, studentId });
+    const student = students.find(s => s.id === studentId);
+    if (!student) {
+      toast.error("Estudante não encontrado");
+      return;
+    }
+
+    // Mock payment data
+    const mockPaymentData = {
+      studentId: student.id,
+      studentName: student.name,
+      courseId: 1,
+      courseName: student.className || "Curso não especificado",
+      monthlyFee: 25000,
+      totalPaid: 150000,
+      totalDebt: 50000,
+      advanceBalance: 0,
+      totalFines: 5000,
+      payments: Array.from({ length: 12 }, (_, i) => ({
+        month: ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"][i],
+        monthNumber: i + 1,
+        amount: 25000,
+        status: i < 6 ? "paid" : i < 8 ? "pending" : "overdue" as "paid" | "pending" | "overdue",
+        paidDate: i < 6 ? `2024-${String(i + 1).padStart(2, '0')}-15` : undefined,
+        fine: i >= 8 ? 2500 : 0
+      }))
+    };
+
+    setPaymentModal({
+      isOpen: true,
+      studentId,
+      paymentData: mockPaymentData
+    });
   };
 
   const handleRecordPayment = (amount: number, method: PaymentMethod, monthReference: string, description?: string) => {
@@ -971,24 +1004,6 @@ const mappedStudents = apiStudents.map((student: APIStudent) => {
         </div>
       </div>
 
-      {/* User Profile */}
-      <div className="p-4 border-b border-white/10">
-        <div className={`flex items-center gap-3 ${!isSidebarOpen && 'justify-center'}`}>
-          <div className="h-10 w-10 bg-gradient-to-br from-[#F5821F] to-[#FF9933] rounded-full flex items-center justify-center font-bold text-white shadow-md flex-shrink-0">
-            {displayName.charAt(0)}
-          </div>
-          {isSidebarOpen && (
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-sm truncate">{displayName}</p>
-              <div className="flex items-center gap-1.5 text-xs text-slate-300">
-                <Shield className="h-3 w-3" />
-                <span>Super Admin</span>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
       {/* Menu Navigation */}
       <nav className="flex-1 overflow-y-auto py-4 px-3">
         <div className="space-y-1">
@@ -1018,11 +1033,32 @@ const mappedStudents = apiStudents.map((student: APIStudent) => {
 
       {/* Bottom Info */}
       <div className="p-3 border-t border-white/10">
-        {isSidebarOpen && (
-          <div className="px-4 py-3 bg-white/5 rounded-lg">
-            <p className="text-xs text-slate-400">Sistema Acadêmico ISAC</p>
-            <p className="text-xs text-slate-500 mt-1">Versão 1.0.0</p>
+        {isSidebarOpen ? (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setGeneralSettingsModal(true)}
+              className="h-10 w-10 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg flex-shrink-0"
+              title="Configurações"
+            >
+              <Settings className="h-5 w-5" />
+            </Button>
+            <div className="flex-1 px-2 py-3 bg-white/5 rounded-lg">
+              <p className="text-xs text-slate-400">Sistema Acadêmico ISAC</p>
+              <p className="text-xs text-slate-500 mt-1">Versão 1.0.0</p>
+            </div>
           </div>
+        ) : (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setGeneralSettingsModal(true)}
+            className="w-full h-12 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg"
+            title="Configurações"
+          >
+            <Settings className="h-5 w-5" />
+          </Button>
         )}
       </div>
 
@@ -1523,15 +1559,14 @@ const mappedStudents = apiStudents.map((student: APIStudent) => {
       />
     )}
 
-    {paymentDetailsModal.studentInfo && (
-      <StudentPaymentDetailsModal
-        isOpen={paymentDetailsModal.isOpen}
-        onClose={handleClosePaymentDetails}
-        student={{
-          id: paymentDetailsModal.studentInfo.id,
-          name: paymentDetailsModal.studentInfo.name,
-          course: paymentDetailsModal.studentInfo.className,
-          enrollmentDate: paymentDetailsModal.studentInfo.enrollmentDate
+    {paymentModal.isOpen && paymentModal.paymentData && (
+      <StudentPaymentManagementModal
+        isOpen={paymentModal.isOpen}
+        onClose={() => setPaymentModal({ isOpen: false, studentId: 0, paymentData: null })}
+        studentData={paymentModal.paymentData}
+        onSavePayment={(data) => {
+          console.log("Payment saved:", data);
+          toast.success("Pagamento registrado!");
         }}
       />
     )}
