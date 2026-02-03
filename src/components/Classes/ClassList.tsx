@@ -1,4 +1,4 @@
-// src/components/shared/ClassList.tsx - VERSÃO CORRIGIDA E ALINHADA COM O BANCO
+// src/components/shared/ClassList.tsx
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -16,7 +16,9 @@ import {
   GraduationCap,
   Search,
   CheckCircle,
-  X
+  XCircle,
+  Award,
+  Download
 } from "lucide-react";
 
 // 🔥 INTERFACE ALINHADA COM O BANCO DE DADOS
@@ -214,58 +216,122 @@ export function ClassList({
     return matchesSearch && matchesStatus && matchesSemester;
   });
 
-  const totalStudents = classes.reduce((acc, c) => acc + getClassStudents(c), 0);
+  const stats = {
+    total: classes.length,
+    active: classes.filter(c => normalizeStatus(c.status) === 'active').length,
+    inactive: classes.filter(c => normalizeStatus(c.status) === 'inactive').length,
+    completed: classes.filter(c => normalizeStatus(c.status) === 'completed').length,
+    totalStudents: classes.reduce((acc, c) => acc + getClassStudents(c), 0)
+  };
+
+  const handleExportClasses = () => {
+    const csvContent = [
+      ["ID", "Código", "Nome", "Professor", "Semestre", "Horário", "Sala", "Estudantes", "Capacidade", "Status"],
+      ...filteredClasses.map(c => [
+        c.id,
+        getClassCode(c),
+        getClassDisplayName(c),
+        getClassTeacher(c),
+        c.semestre || c.semester || "",
+        getClassSchedule(c),
+        getClassRoom(c),
+        getClassStudents(c),
+        getClassMaxStudents(c),
+        getStatusText(c.status || 'ativa')
+      ])
+    ].map(row => row.join(",")).join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `turmas_${new Date().toISOString().split("T")[0]}.csv`;
+    link.click();
+  };
 
   return (
     <div className="space-y-6">
-      {/* Header Section - Estilo Moderno */}
+      {/* Header Section */}
       <div className="bg-gradient-to-br from-slate-50 to-blue-50/30 rounded-2xl p-8 border border-slate-200/60">
-        <h2 className="text-3xl font-bold text-[#004B87] mb-2">
-          {currentUserRole === 'teacher' ? 'Minhas Turmas' : 'Turmas'}
-        </h2>
-
-        {/* Cards de Estatísticas */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {/* Total de Turmas */}
-          <div className="bg-white rounded-lg p-3 shadow-sm border border-slate-100 flex items-center gap-3">
-            <div className="h-12 w-12 bg-gradient-to-br from-[#F5821F] to-[#FF9933] rounded-lg flex items-center justify-center flex-shrink-0">
-              <BookOpen className="h-5 w-5 text-white" />
-            </div>
-            <div>
-              <p className="text-xs text-slate-600">Total de Turmas</p>
-              <p className="text-2xl font-bold text-[#004B87]">{classes.length}</p>
-            </div>
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 mb-6">
+          <div>
+            <h2 className="text-3xl font-bold text-[#004B87] mb-2 flex items-center gap-3">
+              <BookOpen className="h-8 w-8" />
+              {currentUserRole === 'teacher' ? 'Minhas Turmas' : 'Gestão de Turmas'}
+            </h2>
+            <p className="text-sm text-[#004B87]/70">
+              {stats.total} turma{stats.total !== 1 ? 's' : ''} cadastrada{stats.total !== 1 ? 's' : ''}
+            </p>
           </div>
 
-          {/* Total de Estudantes */}
-          <div className="bg-white rounded-lg p-3 shadow-sm border border-slate-100 flex items-center gap-3">
-            <div className="h-12 w-12 bg-gradient-to-br from-[#004B87] to-[#0066B3] rounded-lg flex items-center justify-center flex-shrink-0">
-              <Users className="h-5 w-5 text-white" />
+          <div className="flex gap-2">
+            <Button
+              onClick={handleExportClasses}
+              variant="outline"
+              className="border-2 border-slate-300 hover:border-slate-400"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Exportar
+            </Button>
+            {permissions.canAdd && currentUserRole !== 'teacher' && (
+              <Button 
+                onClick={onCreateClass}
+                className="bg-gradient-to-r from-[#F5821F] to-[#FF9933] hover:from-[#E07318] hover:to-[#F58820] text-white"
+              >
+                <BookOpen className="h-5 w-5 mr-2" />
+                Nova Turma
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <div className="bg-white rounded-xl p-4 border-2 border-slate-100">
+            <div className="flex items-center gap-2 mb-2">
+              <BookOpen className="h-4 w-4 text-slate-600" />
+              <span className="text-xs text-slate-600 font-medium">Total</span>
             </div>
-            <div>
-              <p className="text-xs text-slate-600">Total de Estudantes</p>
-              <p className="text-2xl font-bold text-[#0066B3]">{totalStudents}</p>
-            </div>
+            <p className="text-2xl font-bold text-slate-800">{stats.total}</p>
           </div>
 
-          {/* Turmas Ativas */}
-          <div className="bg-white rounded-lg p-3 shadow-sm border border-slate-100 flex items-center gap-3">
-            <div className="h-12 w-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center flex-shrink-0">
-              <CheckCircle className="h-5 w-5 text-white" />
+          <div className="bg-green-50 rounded-xl p-4 border-2 border-green-200">
+            <div className="flex items-center gap-2 mb-2">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              <span className="text-xs text-green-700 font-medium">Ativas</span>
             </div>
-            <div>
-              <p className="text-xs text-slate-600">Turmas Ativas</p>
-              <p className="text-2xl font-bold text-green-600">
-                {classes.filter(c => normalizeStatus(c.status) === 'active').length}
-              </p>
+            <p className="text-2xl font-bold text-green-700">{stats.active}</p>
+          </div>
+
+          <div className="bg-gray-50 rounded-xl p-4 border-2 border-gray-200">
+            <div className="flex items-center gap-2 mb-2">
+              <XCircle className="h-4 w-4 text-gray-600" />
+              <span className="text-xs text-gray-700 font-medium">Inativas</span>
             </div>
+            <p className="text-2xl font-bold text-gray-700">{stats.inactive}</p>
+          </div>
+
+          <div className="bg-blue-50 rounded-xl p-4 border-2 border-blue-200">
+            <div className="flex items-center gap-2 mb-2">
+              <Award className="h-4 w-4 text-blue-600" />
+              <span className="text-xs text-blue-700 font-medium">Concluídas</span>
+            </div>
+            <p className="text-2xl font-bold text-blue-700">{stats.completed}</p>
+          </div>
+
+          <div className="bg-gradient-to-br from-[#004B87]/10 to-[#F5821F]/10 rounded-xl p-4 border-2 border-[#004B87]/20">
+            <div className="flex items-center gap-2 mb-2">
+              <Users className="h-4 w-4 text-[#004B87]" />
+              <span className="text-xs text-[#004B87] font-medium">Estudantes</span>
+            </div>
+            <p className="text-2xl font-bold bg-gradient-to-r from-[#004B87] to-[#F5821F] bg-clip-text text-transparent">
+              {stats.totalStudents}
+            </p>
           </div>
         </div>
       </div>
 
-      {/* Barra de Busca e Filtros - Estilo Moderno */}
+      {/* Filters */}
       <div className="flex flex-col md:flex-row gap-3">
-        {/* Campo de Busca */}
         <div className="relative flex-1">
           <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-slate-400" />
           <Input
@@ -276,39 +342,26 @@ export function ClassList({
           />
         </div>
 
-        {/* Filtro Semestre */}
         <select 
           value={semesterFilter}
           onChange={(e) => setSemesterFilter(e.target.value)}
-          className="px-4 h-12 border-2 border-slate-200 rounded-xl text-sm focus:border-[#F5821F] focus:outline-none focus:ring-2 focus:ring-[#F5821F]/20 min-w-[150px] bg-white"
+          className="px-4 h-12 border-2 border-slate-200 rounded-xl text-sm focus:border-[#F5821F] focus:outline-none focus:ring-2 focus:ring-[#F5821F]/20 min-w-[180px] bg-white"
         >
           <option value="all">Todos os Semestres</option>
           <option value="1">1º Semestre</option>
           <option value="2">2º Semestre</option>
         </select>
 
-        {/* Filtro Status */}
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as any)}
-          className="px-4 h-12 border-2 border-slate-200 rounded-xl text-sm focus:border-[#F5821F] focus:outline-none focus:ring-2 focus:ring-[#F5821F]/20 min-w-[150px] bg-white"
+          className="px-4 h-12 border-2 border-slate-200 rounded-xl text-sm focus:border-[#F5821F] focus:outline-none focus:ring-2 focus:ring-[#F5821F]/20 min-w-[160px] bg-white"
         >
           <option value="all">Todos os Status</option>
-          <option value="active">Ativa</option>
-          <option value="inactive">Inativa</option>
-          <option value="completed">Concluída</option>
+          <option value="active">✅ Ativas</option>
+          <option value="inactive">❌ Inativas</option>
+          <option value="completed">🏆 Concluídas</option>
         </select>
-
-        {/* Botão Criar Nova */}
-        {permissions.canAdd && currentUserRole !== 'teacher' && (
-          <Button 
-            onClick={onCreateClass}
-            className="h-12 px-6 bg-gradient-to-r from-[#F5821F] to-[#FF9933] hover:from-[#E07318] hover:to-[#F58820] text-white rounded-xl shadow-md min-w-[120px]"
-          >
-            <BookOpen className="h-5 w-5 mr-2" />
-            Nova Turma
-          </Button>
-        )}
       </div>
 
       {/* Lista de Cards */}
@@ -336,8 +389,7 @@ export function ClassList({
               {permissions.canAdd && currentUserRole !== 'teacher' && !searchTerm && (
                 <Button 
                   onClick={onCreateClass}
-                  variant="outline"
-                  className="border-2 border-[#F5821F] text-[#F5821F] hover:bg-[#F5821F] hover:text-white"
+                  className="bg-gradient-to-r from-[#F5821F] to-[#FF9933] hover:from-[#E07318] hover:to-[#F58820] text-white"
                 >
                   <BookOpen className="h-4 w-4 mr-2" />
                   Criar Primeira Turma
@@ -347,7 +399,7 @@ export function ClassList({
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filteredClasses.map((classItem) => {
             const displayName = getClassDisplayName(classItem);
             const teacher = getClassTeacher(classItem);
@@ -458,79 +510,48 @@ export function ClassList({
                     </div>
                   </div>
 
-                  {/* Botões de Ação */}
+                  {/* Botões de Ação - LAYOUT REORGANIZADO */}
                   <div className="space-y-1.5 pt-2.5 border-t border-slate-100">
-                    {/* Ver Estudantes */}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full h-8 text-xs justify-start border-2 border-[#004B87] text-[#004B87] hover:bg-[#004B87] hover:text-white transition-all"
-                      onClick={() => onViewStudents(classItem)}
-                    >
-                      <Eye className="h-3 w-3 mr-2" />
-                      Ver Estudantes
-                    </Button>
-
-                    {/* Linha com 2 botões */}
+                    {/* Primeira linha: Ver Estudantes + Adicionar Estudantes */}
                     <div className="flex gap-1.5">
-                      {/* Gerenciar */}
-                      {permissions.canEdit && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="flex-1 h-8 text-xs border-2 border-slate-300 text-slate-700 hover:bg-slate-50"
-                          onClick={() => onManageClass(classItem)}
-                        >
-                          <Settings className="h-3 w-3 mr-1" />
-                          Gerenciar
-                        </Button>
-                      )}
+                      {/* Ver Estudantes */}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 h-9 text-[11px] justify-center border-2 border-[#004B87] text-[#004B87] hover:bg-[#004B87] hover:text-white transition-all font-medium px-2"
+                        onClick={() => onViewStudents(classItem)}
+                        title="Ver lista de estudantes"
+                      >
+                        <Eye className="h-3.5 w-3.5 mr-1 flex-shrink-0" />
+                        <span className="truncate">Ver Alunos</span>
+                      </Button>
 
-                      {/* Toggle Status */}
-                      {onToggleClassStatus && classItem.id && (
+                      {/* Adicionar Estudantes */}
+                      {permissions.canAdd && (
                         <Button
                           variant="outline"
                           size="sm"
-                          className={`h-8 px-3 text-xs border-2 transition-all ${
-                            status === "active" 
-                              ? "border-red-300 text-red-600 hover:bg-red-50" 
-                              : "border-green-300 text-green-600 hover:bg-green-50"
-                          }`}
-                          onClick={() => onToggleClassStatus(classItem.id!)}
-                          title={status === "active" ? "Desativar turma" : "Ativar turma"}
+                          className="flex-1 h-9 text-[11px] justify-center border-2 border-green-500 text-green-600 hover:bg-green-50 hover:border-green-600 transition-all font-medium px-2"
+                          onClick={() => onAddStudentToClass(classItem)}
+                          title="Adicionar novos estudantes"
                         >
-                          {status === "active" ? (
-                            <X className="h-3 w-3" />
-                          ) : (
-                            <CheckCircle className="h-3 w-3" />
-                          )}
+                          <UserPlus className="h-3.5 w-3.5 mr-1 flex-shrink-0" />
+                          <span className="truncate">Adicionar</span>
                         </Button>
                       )}
                     </div>
 
-                    {/* Adicionar Estudantes */}
-                    {permissions.canAdd && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full h-8 text-xs justify-start border-2 border-green-300 text-green-600 hover:bg-green-50"
-                        onClick={() => onAddStudentToClass(classItem)}
-                      >
-                        <UserPlus className="h-3 w-3 mr-2" />
-                        Adicionar Estudantes
-                      </Button>
-                    )}
-
-                    {/* Lançar Notas - Professor e Admin */}
+                    {/* Segunda linha: Lançar Notas (se aplicável) */}
                     {(currentUserRole === 'teacher' || currentUserRole === 'admin') && onLaunchGrades && (
                       <Button
                         variant="outline"
                         size="sm"
-                        className="w-full h-8 text-xs justify-start border-2 border-[#F5821F] text-[#F5821F] hover:bg-[#F5821F] hover:text-white"
+                        className="w-full h-9 text-[11px] justify-center border-2 border-[#F5821F] text-[#F5821F] hover:bg-[#F5821F] hover:text-white transition-all font-medium px-2"
                         onClick={() => onLaunchGrades(classItem)}
+                        title="Lançar notas dos alunos"
                       >
-                        <BookOpen className="h-3 w-3 mr-2" />
-                        Lançar Notas
+                        <BookOpen className="h-3.5 w-3.5 mr-1.5 flex-shrink-0" />
+                        <span className="truncate">Lançar Notas</span>
                       </Button>
                     )}
                   </div>
@@ -543,11 +564,25 @@ export function ClassList({
 
       {/* Rodapé com Total */}
       {filteredClasses.length > 0 && (
-        <div className="flex flex-col md:flex-row justify-between items-center gap-4 pt-4 border-t border-slate-200">
+        <div className="flex justify-between items-center pt-4 border-t border-slate-200">
           <p className="text-sm text-slate-600">
             Mostrando <span className="font-semibold">{filteredClasses.length}</span> de{" "}
             <span className="font-semibold">{classes.length}</span> turmas
           </p>
+          {(searchTerm || statusFilter !== 'all' || semesterFilter !== 'all') && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setSearchTerm("");
+                setStatusFilter("all");
+                setSemesterFilter("all");
+              }}
+              className="text-[#F5821F] hover:text-[#004B87]"
+            >
+              Limpar Filtros
+            </Button>
+          )}
         </div>
       )}
     </div>

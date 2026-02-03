@@ -34,7 +34,7 @@ import { PaymentManagementModal } from "./Payments/PaymentManagementModal";
 import { GeneralSettingsModal } from "./shared/GeneralSettingsModal";
 import { TeacherProfileModal } from "./Teachers/TeacherProfileModal";
 import { StudentProfileModal } from "./Students/StudentProfileModal";
-import CreateCourseModal from '@/components/shared/superadmin/CreateCourseModal';
+import CreateCourseModal from '@/components/Courses/CreateCourseModal';
 import { CourseList } from "./shared/superadmin/CourseList";
 import { RegistrationList, Registration } from "./shared/reusable/RegistrationList";
 import { UsersList, SystemUser } from "@/components/Users/UsersList";
@@ -42,6 +42,7 @@ import { GradesList, Grade } from "./shared/GradesList";
 import { LaunchGradesModal } from "./shared/LaunchGradesModal";
 import { StudentPaymentDetailsModal } from "./Payments/StudentPaymentDetailsModal";
 import { AdminSidebar, menuItems, AdminView } from "./shared/AdminSidebar";
+import { InscriptionList } from "./shared/InscriptionList";
 
 
 // Types
@@ -119,7 +120,8 @@ const [isLoadingRegistrations, setIsLoadingRegistrations] = useState(false);
   const [registrationModal, setRegistrationModal] = useState({
   isOpen: false,
   registrationData: null as Registration | null,
-  isEditing: false
+  isEditing: false,
+  preSelectedStudentId: null as number | null
 });
 
   const [paymentModal, setPaymentModal] = useState({
@@ -464,10 +466,10 @@ const loadRegistrations = async () => {
         observations: reg.observations
       };
     });
-    
+
     setRegistrations(mappedRegistrations);
     console.log('✅ Matrículas mapeadas:', mappedRegistrations.length);
-    
+
   } catch (error: any) {
     console.error('❌ Erro ao carregar matrículas:', error);
     toast.error('Erro ao carregar matrículas');
@@ -475,8 +477,6 @@ const loadRegistrations = async () => {
     setIsLoadingRegistrations(false);
   }
 };
-
-
 
 const handleAddRegistration = () => {
   console.log('Abrindo modal de matrícula');
@@ -954,51 +954,66 @@ const mappedStudents = apiStudents.map((student: APIStudent) => {
       {/* Top Bar */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
         <div className="px-8 py-4 flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-slate-800">
-              {menuItems.find(m => m.id === activeView)?.label || 'Dashboard'}
-            </h2>
-            <p className="text-sm text-slate-500 mt-0.5">
-              Gerencie estudantes, docentes, turmas e cursos da instituição
-            </p>
+          {/* Alinhamento à Esquerda: Título e Subtítulo */}
+          <div className="flex items-center gap-4">
+            {/* Ícone de Branding sutil para combinar com o menu lateral */}
+            <div className="h-10 w-10 bg-gradient-to-br from-[#004B87] to-[#003366] rounded-lg shadow-md flex items-center justify-center">
+                <span className="text-xl font-bold text-white">iS</span>
+            </div>
+            <div>
+                <h2 className="text-2xl font-bold text-slate-800">
+                {menuItems.find(m => m.id === activeView)?.label || 'Dashboard'}
+                </h2>
+                <p className="text-sm text-slate-500 mt-0.5">
+                Gerencie estudantes, docentes, turmas e cursos da instituição
+                </p>
+            </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            {/* User Info with Avatar */}
-            <div className="flex items-center gap-3 px-4 py-2 bg-slate-50 rounded-full border border-slate-200">
-              <div className="h-8 w-8 bg-gradient-to-br from-[#F5821F] to-[#FF9933] rounded-full flex items-center justify-center font-bold text-white shadow-md flex-shrink-0">
+          {/* Alinhamento à Direita: User Info/Status/Logout */}
+          <div className="flex items-center gap-4">
+            
+            {/* Botão de Status Online com Efeito Sutil de Destaque */}
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 rounded-full border border-emerald-200 shadow-sm hover:bg-emerald-100 transition-colors cursor-pointer">
+              <div className="h-2.5 w-2.5 bg-emerald-500 rounded-full animate-pulse"></div>
+              <span className="text-xs text-emerald-700 font-semibold">Online</span>
+            </div>
+
+            {/* Cartão de Informação do Utilizador Estilizado */}
+            <div className="flex items-center gap-3 px-4 py-2 bg-white rounded-xl border-2 border-[#004B87]/20 shadow-md">
+              {/* Avatar com o gradiente da marca */}
+              <div className="h-9 w-9 bg-gradient-to-br from-[#F5821F] to-[#FF9933] rounded-full flex items-center justify-center font-bold text-white shadow-inner flex-shrink-0 text-lg">
                 {displayName.charAt(0)}
               </div>
               <div className="flex flex-col">
-                <span className="text-sm font-semibold text-slate-800">{displayName}</span>
+                <span className="text-sm font-bold text-slate-800">{displayName}</span>
                 <span className="text-xs text-slate-500">Super Admin</span>
               </div>
+
+              {/* Botão de Logout Integrado no mesmo card */}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={async () => {
+                  try {
+                    await logout();
+                    if (onLogout) onLogout();
+                  } catch (e) {
+                    console.error('Logout falhou', e);
+                  }
+                }}
+                className="text-red-500 hover:text-white hover:bg-red-600 rounded-lg transition-colors ml-2"
+                title="Sair do Sistema"
+              >
+                <LogOut className="h-5 w-5" />
+              </Button>
+
             </div>
 
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 rounded-full border border-emerald-200">
-              <div className="h-2 w-2 bg-emerald-500 rounded-full animate-pulse"></div>
-              <span className="text-xs text-emerald-700 font-medium">Online</span>
-            </div>
-
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={async () => {
-                try {
-                  await logout();
-                  if (onLogout) onLogout();
-                } catch (e) {
-                  console.error('Logout falhou', e);
-                }
-              }}
-              className="text-red-500 hover:text-red-600 hover:bg-red-50"
-              title="Sair"
-            >
-              <LogOut className="h-5 w-5" />
-            </Button>
           </div>
         </div>
       </header>
+
 
       {/* Dashboard Content */}
       <div className="p-8">
@@ -1262,6 +1277,20 @@ const mappedStudents = apiStudents.map((student: APIStudent) => {
   />
 </TabsContent>
 
+          <TabsContent value="inscriptions" className="mt-0">
+            <InscriptionList
+              onProceedToRegistration={(studentId) => {
+                // Abrir modal de matrícula com estudante pré-selecionado
+                setRegistrationModal({
+                  isOpen: true,
+                  registrationData: null,
+                  isEditing: false,
+                  preSelectedStudentId: studentId
+                });
+              }}
+            />
+          </TabsContent>
+
           <TabsContent value="payments" className="mt-0">
             <PaymentList
               students={students}
@@ -1418,11 +1447,12 @@ const mappedStudents = apiStudents.map((student: APIStudent) => {
 
 <RegistrationStudentModal
   isOpen={registrationModal.isOpen}
-  onClose={() => setRegistrationModal({ isOpen: false, registrationData: null, isEditing: false })}
+  onClose={() => setRegistrationModal({ isOpen: false, registrationData: null, isEditing: false, preSelectedStudentId: null })}
   registrationData={registrationModal.registrationData}
   isEditing={registrationModal.isEditing}
   onSave={handleSaveRegistration}
-  existingRegistrations={registrations} // ✅ ADICIONAR ESTA LINHA
+  existingRegistrations={registrations}
+  preSelectedStudentId={registrationModal.preSelectedStudentId}
 />
 
     {launchGradesModal.classInfo && (

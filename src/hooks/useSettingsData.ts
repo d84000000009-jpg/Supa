@@ -57,9 +57,14 @@ export interface GeneralSettings {
   autoBackupEnabled: boolean;
   backupFrequency: string; // daily, weekly, monthly
   backupRetention: number; // em dias
+
+  // Configurações de Inscrição
+  inscriptionIsPaid: boolean; // Se inscrição requer pagamento
+  inscriptionFee: number; // Valor da taxa de inscrição em MZN
 }
 
 const SETTINGS_STORAGE_KEY = 'oxford_general_settings';
+const SETTINGS_CHANGE_EVENT = 'oxford_settings_changed';
 
 const defaultSettings: GeneralSettings = {
   // Informações da Instituição
@@ -116,14 +121,18 @@ const defaultSettings: GeneralSettings = {
   autoBackupEnabled: true,
   backupFrequency: "daily",
   backupRetention: 30,
+
+  // Configurações de Inscrição
+  inscriptionIsPaid: false, // Por defeito, inscrição é gratuita
+  inscriptionFee: 0, // Taxa zero quando gratuita
 };
 
 export function useSettingsData() {
   const [settings, setSettings] = useState<GeneralSettings>(defaultSettings);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Carregar configurações do localStorage na inicialização
-  useEffect(() => {
+  // Função para carregar settings do localStorage
+  const loadSettingsFromStorage = () => {
     try {
       const savedSettings = localStorage.getItem(SETTINGS_STORAGE_KEY);
       if (savedSettings) {
@@ -132,9 +141,34 @@ export function useSettingsData() {
       }
     } catch (error) {
       console.error('Erro ao carregar configurações:', error);
-    } finally {
-      setIsLoading(false);
     }
+  };
+
+  // Carregar configurações do localStorage na inicialização
+  useEffect(() => {
+    loadSettingsFromStorage();
+    setIsLoading(false);
+  }, []);
+
+  // Escutar por mudanças de settings de outros componentes
+  useEffect(() => {
+    const handleSettingsChange = () => {
+      loadSettingsFromStorage();
+    };
+
+    // Escutar evento customizado para sincronização entre componentes
+    window.addEventListener(SETTINGS_CHANGE_EVENT, handleSettingsChange);
+
+    // Escutar storage event para sincronização entre abas
+    window.addEventListener('storage', (e) => {
+      if (e.key === SETTINGS_STORAGE_KEY) {
+        loadSettingsFromStorage();
+      }
+    });
+
+    return () => {
+      window.removeEventListener(SETTINGS_CHANGE_EVENT, handleSettingsChange);
+    };
   }, []);
 
   // Salvar configurações
@@ -143,7 +177,10 @@ export function useSettingsData() {
       try {
         setSettings(newSettings);
         localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(newSettings));
-        
+
+        // Disparar evento customizado para sincronizar outros componentes
+        window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT));
+
         // Simular um delay de salvamento para feedback visual
         setTimeout(() => {
           console.log('Configurações salvas com sucesso:', newSettings);
@@ -162,7 +199,10 @@ export function useSettingsData() {
       try {
         setSettings(defaultSettings);
         localStorage.removeItem(SETTINGS_STORAGE_KEY);
-        
+
+        // Disparar evento customizado para sincronizar outros componentes
+        window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT));
+
         setTimeout(() => {
           console.log('Configurações resetadas para valores padrão');
           resolve(true);
@@ -176,7 +216,7 @@ export function useSettingsData() {
 
   // Atualizar configurações específicas
   const updateSetting = <K extends keyof GeneralSettings>(
-    key: K, 
+    key: K,
     value: GeneralSettings[K]
   ): Promise<boolean> => {
     return new Promise((resolve) => {
@@ -184,7 +224,10 @@ export function useSettingsData() {
         const updatedSettings = { ...settings, [key]: value };
         setSettings(updatedSettings);
         localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(updatedSettings));
-        
+
+        // Disparar evento customizado para sincronizar outros componentes
+        window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT));
+
         setTimeout(() => {
           console.log(`Configuração ${key} atualizada:`, value);
           resolve(true);
@@ -207,10 +250,13 @@ export function useSettingsData() {
       try {
         const importedSettings = JSON.parse(settingsJson);
         const mergedSettings = { ...defaultSettings, ...importedSettings };
-        
+
         setSettings(mergedSettings);
         localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(mergedSettings));
-        
+
+        // Disparar evento customizado para sincronizar outros componentes
+        window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT));
+
         setTimeout(() => {
           console.log('Configurações importadas com sucesso');
           resolve(true);

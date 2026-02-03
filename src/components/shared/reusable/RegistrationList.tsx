@@ -38,13 +38,18 @@ export interface Registration {
   className?: string;
   period: string; // "2025/1", "2025/2"
   enrollmentDate: string;
-  status: 'active' | 'suspended' | 'cancelled' | 'completed';
+  status: 'active' | 'pending' | 'suspended' | 'cancelled' | 'completed';
   paymentStatus: 'paid' | 'pending' | 'overdue';
   enrollmentFee: number;
   monthlyFee: number;
   modules?: string[];
   observations?: string;
   registrationType?: 'new' | 'renewal' | 'transfer';
+  // Campos de pagamento (ConfirmationTab)
+  paidAmount?: number;
+  paymentMethod?: 'cash' | 'transfer' | 'mobile' | 'check';
+  paymentReference?: string;
+  includeFirstMonth?: boolean;
 }
 
 interface RegistrationListProps {

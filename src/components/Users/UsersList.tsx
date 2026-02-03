@@ -314,18 +314,32 @@ export function UsersList({
           </CardContent>
         </Card>
       ) : (
-        <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-slate-200">
-          <div className="bg-gradient-to-r from-[#004B87] to-[#0066B3] text-white px-6 py-4">
-            <div className="grid grid-cols-12 gap-4 items-center font-semibold text-sm">
-              <div className="col-span-3">Usuário</div>
-              <div className="col-span-2">Perfil</div>
-              <div className="col-span-2">Contato</div>
-              <div className="col-span-2">Cadastro</div>
-              <div className="col-span-2">Último Acesso</div>
-              <div className="col-span-1 text-right">Ações</div>
+        <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-slate-200">
+          {/* Table Header */}
+          <div className="bg-slate-50 border-b-2 border-slate-200 px-6 py-4">
+            <div className="grid grid-cols-12 gap-4 items-center">
+              <div className="col-span-3">
+                <span className="text-slate-700 font-bold text-sm uppercase tracking-wide">Usuário</span>
+              </div>
+              <div className="col-span-2">
+                <span className="text-slate-700 font-bold text-sm uppercase tracking-wide">Perfil</span>
+              </div>
+              <div className="col-span-2">
+                <span className="text-slate-700 font-bold text-sm uppercase tracking-wide">Contato</span>
+              </div>
+              <div className="col-span-2">
+                <span className="text-slate-700 font-bold text-sm uppercase tracking-wide">Cadastro</span>
+              </div>
+              <div className="col-span-2">
+                <span className="text-slate-700 font-bold text-sm uppercase tracking-wide">Último Acesso</span>
+              </div>
+              <div className="col-span-1 text-right">
+                <span className="text-slate-700 font-bold text-sm uppercase tracking-wide">Ações</span>
+              </div>
             </div>
           </div>
 
+          {/* Table Body */}
           <div className="divide-y divide-slate-100">
             {filteredUsers.map((user) => {
               const roleInfo = getRoleInfo(user.role);
@@ -334,44 +348,48 @@ export function UsersList({
               return (
                 <div
                   key={user.id}
-                  className="grid grid-cols-12 gap-4 items-center px-6 py-4 hover:bg-slate-50 transition-colors"
+                  className="grid grid-cols-12 gap-4 items-center px-6 py-4 hover:bg-slate-50/80 transition-colors"
                 >
+                  {/* User Column */}
                   <div className="col-span-3 flex items-center gap-3">
-                    <div className={`h-12 w-12 bg-gradient-to-br from-[#004B87] to-[#0066B3] rounded-xl flex items-center justify-center flex-shrink-0 shadow-md ${
-                      user.status === 'inactive' ? 'opacity-50' : ''
+                    <div className={`h-12 w-12 bg-gradient-to-br from-[#004B87] to-[#0066B3] rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm ${
+                      user.status === 'inactive' ? 'opacity-50 grayscale' : ''
                     }`}>
                       <span className="text-white font-bold text-lg">
                         {user.name.charAt(0).toUpperCase()}
                       </span>
                     </div>
+                    
                     <div className="min-w-0">
-                      <h3 className="font-bold text-sm text-slate-800 truncate flex items-center gap-2">
-                        {user.name}
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-bold text-sm text-slate-800 truncate">
+                          {user.name}
+                        </h3>
                         {user.status === 'inactive' && (
-                          <Badge className="bg-gray-100 text-gray-600 border-0 text-[10px]">
+                          <Badge className="bg-gray-100 text-gray-600 border-0 text-[10px] px-1.5 py-0">
                             Inativo
                           </Badge>
                         )}
-                      </h3>
+                      </div>
                       <p className="text-xs text-slate-500 truncate">{user.email}</p>
                     </div>
                   </div>
 
+                  {/* Role Column */}
                   <div className="col-span-2">
                     <Badge className={`${roleInfo.color} border text-xs font-semibold`}>
-                      <RoleIcon className="h-3 w-3 mr-1" />
+                      <RoleIcon className="h-3 w-3 mr-1.5" />
                       {roleInfo.label}
                     </Badge>
                   </div>
 
+                  {/* Contact Column */}
                   <div className="col-span-2">
                     <div className="space-y-1">
-                      {user.email && (
-                        <div className="flex items-center gap-1.5 text-xs text-slate-600">
-                          <Mail className="h-3 w-3 text-slate-400" />
-                          <span className="truncate">{user.email.split('@')[0]}</span>
-                        </div>
-                      )}
+                      <div className="flex items-center gap-1.5 text-xs text-slate-600">
+                        <Mail className="h-3 w-3 text-slate-400" />
+                        <span className="truncate">{user.email.split('@')[0]}</span>
+                      </div>
                       {user.phone && (
                         <div className="flex items-center gap-1.5 text-xs text-slate-600">
                           <Phone className="h-3 w-3 text-slate-400" />
@@ -381,6 +399,7 @@ export function UsersList({
                     </div>
                   </div>
 
+                  {/* Registration Date Column */}
                   <div className="col-span-2">
                     <div className="flex items-center gap-1.5 text-xs text-slate-600">
                       <Calendar className="h-3 w-3 text-slate-400" />
@@ -388,6 +407,7 @@ export function UsersList({
                     </div>
                   </div>
 
+                  {/* Last Access Column */}
                   <div className="col-span-2">
                     {user.lastLogin ? (
                       <div className="flex items-center gap-1.5 text-xs text-slate-600">
@@ -395,14 +415,15 @@ export function UsersList({
                         <span>{formatDate(user.lastLogin)}</span>
                       </div>
                     ) : (
-                      <span className="text-xs text-slate-400">Nunca acessou</span>
+                      <span className="text-xs text-slate-400 italic">Nunca acessou</span>
                     )}
                   </div>
 
-                  <div className="col-span-1 flex justify-end gap-1">
+                  {/* Actions Column */}
+                  <div className="col-span-1 flex justify-end items-center gap-2">
                     <Button
                       size="icon"
-                      className="h-9 w-9 bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white rounded-lg shadow-md"
+                      className="h-10 w-10 bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white rounded-lg shadow-sm hover:shadow-md transition-all"
                       onClick={() => handleViewAccessHistory(user)}
                       title="Histórico de Acesso"
                     >
@@ -411,7 +432,7 @@ export function UsersList({
 
                     <Button
                       size="icon"
-                      className="h-9 w-9 bg-gradient-to-r from-[#F5821F] to-[#FF9933] hover:from-[#E07318] hover:to-[#F58820] text-white rounded-lg shadow-md"
+                      className="h-10 w-10 bg-gradient-to-r from-[#F5821F] to-[#FF9933] hover:from-[#E07318] hover:to-[#F58820] text-white rounded-lg shadow-sm hover:shadow-md transition-all"
                       onClick={() => handleViewCredentials(user)}
                       title="Ver Credenciais"
                     >
@@ -421,7 +442,7 @@ export function UsersList({
                     {permissions.canEdit && (
                       <Button
                         size="icon"
-                        className="h-9 w-9 bg-[#004B87] hover:bg-[#003868] text-white rounded-lg shadow-md"
+                        className="h-10 w-10 bg-[#004B87] hover:bg-[#003868] text-white rounded-lg shadow-sm hover:shadow-md transition-all"
                         onClick={() => handleEditUser(user)}
                         title="Editar"
                       >
@@ -433,7 +454,7 @@ export function UsersList({
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-9 w-9 text-red-500 hover:bg-red-50 rounded-lg"
+                        className="h-10 w-10 text-red-500 hover:bg-red-50 hover:text-red-600 rounded-lg border border-red-200 hover:border-red-300 transition-all"
                         onClick={() => onDeleteUser && onDeleteUser(user.id)}
                         title="Remover"
                       >

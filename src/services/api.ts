@@ -56,6 +56,18 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => {
     console.log('✅ Response OK:', response.config.url, '- Status:', response.status);
+    console.log('📦 Response data type:', typeof response.data);
+    console.log('📦 Response data:', response.data);
+    // Se response.data for string, tentar parsear como JSON
+    if (typeof response.data === 'string' && response.data.trim().startsWith('{')) {
+      try {
+        console.log('⚠️ Response data é string, parseando como JSON...');
+        response.data = JSON.parse(response.data);
+        console.log('✅ Parsed data:', response.data);
+      } catch (e) {
+        console.error('❌ Falha ao parsear response.data como JSON:', e);
+      }
+    }
     return response;
   },
   async (error: AxiosError) => {

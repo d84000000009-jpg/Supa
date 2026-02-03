@@ -4,14 +4,16 @@ import { Registration } from "@/components/shared/RegistrationList";
 
 import type { LucideIcon } from "lucide-react";
 /** Tabs disponíveis no modal */
-export type RegistrationTab = "student" | "course" | "payment" | "credentials";
+export type RegistrationTab = "student" | "course" | "payment" | "confirmation" | "credentials";
+export type RegistrationModalTab = RegistrationTab; // Alias para compatibilidade
 
 /** Erros de formulário */
 export type FormErrors = Record<string, string>;
 
 /** Status (ajusta se o teu backend usa outros valores) */
-export type RegistrationStatus = "active" | "suspended" | "cancelled" | "completed";
+export type RegistrationStatus = "active" | "pending" | "suspended" | "cancelled" | "completed";
 export type PaymentStatus = "paid" | "pending" | "overdue";
+export type PaymentMethod = "cash" | "transfer" | "mobile" | "check";
 
 /** Tipo de inscrição */
 export type RegistrationType = "new" | "renewal" | "transfer";
@@ -51,6 +53,9 @@ export interface CourseItem {
   [key: string]: unknown;
 }
 
+/** Turno da turma ou estudante */
+export type Turno = "manha" | "tarde" | "noite";
+
 /** Estrutura mínima da turma que o modal precisa */
 export interface ClassItem {
   id: number;
@@ -61,6 +66,7 @@ export interface ClassItem {
   curso: string;
 
   dias_semana?: string | null;
+  turno?: Turno | null;
 
   [key: string]: unknown;
 }
@@ -149,7 +155,7 @@ export interface CredentialsTabProps extends BaseTabProps {
 }
 
 
-export type RegistrationTabKey = "student" | "course" | "payment" | "credentials";
+export type RegistrationTabKey = "student" | "course" | "payment" | "confirmation" | "credentials";
 
 export interface SidebarTabItem {
   id: RegistrationTabKey;
@@ -171,6 +177,7 @@ export interface ClassDTO {
   codigo?: string | null;
   dias_semana?: string | null;
   curso?: string | null; // se no teu backend for "curso"
+  turno?: Turno | null;
 }
 
 export interface RegistrationDTO {

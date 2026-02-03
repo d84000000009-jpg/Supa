@@ -103,26 +103,51 @@ class StudentService {
   /**
    * ➕ Create new student
    */
-  async create(studentData: CreateStudentData): Promise<{ success: boolean; message: string; id?: number }> {
+  async create(studentData: CreateStudentData): Promise<{ success: boolean; message: string; id?: number; credentials?: { username: string; password: string } }> {
     try {
       console.log('📤 Sending student data to API:', studentData);
-      
-      const response = await apiClient.post<{ success: boolean; message: string; id?: number }>(
-        '/api/students.php', 
+
+      const response = await apiClient.post<{
+        success: boolean;
+        message: string;
+        id?: number;
+        credentials?: { username: string; password: string; enrollment_number: string };
+      }>(
+        '/api/students.php',
         studentData
       );
-      
-      console.log('✅ API Response:', response.data);
-      
+
+      // Debug logging detalhado
+      console.log('📥 Full axios response:', response);
+      console.log('📥 response.data:', response.data);
+      console.log('📥 response.data type:', typeof response.data);
+      console.log('📥 response.data.id:', response.data?.id);
+      console.log('📥 response.data.success:', response.data?.success);
+      console.log('📥 response.data.message:', response.data?.message);
+
+      // Extrair dados da resposta (pode estar em response.data ou response.data.data)
+      const data = response.data?.data ?? response.data;
+
+      console.log('📥 Extracted data:', data);
+
+      // Verificar se a resposta tem id
+      const studentId = data?.id ?? response.data?.id;
+
+      if (!studentId && data?.success !== false) {
+        console.warn('⚠️ API retornou sucesso mas sem ID. Response completa:', JSON.stringify(response.data, null, 2));
+      }
+
       return {
-        success: response.data.success ?? true,
-        message: response.data.message || 'Student created successfully',
-        id: response.data.id
+        success: data?.success ?? response.data?.success ?? true,
+        message: data?.message ?? response.data?.message ?? 'Student created successfully',
+        id: studentId ? Number(studentId) : undefined,
+        credentials: data?.credentials ?? response.data?.credentials
       };
     } catch (error: any) {
       console.error('❌ Error creating student:', error);
-      console.error('Response data:', error.response?.data);
-      const errorMessage = error.response?.data?.message || 'Error creating student';
+      console.error('❌ Error response:', error.response);
+      console.error('❌ Error response data:', error.response?.data);
+      const errorMessage = error.response?.data?.message || error.message || 'Error creating student';
       throw new Error(errorMessage);
     }
   }

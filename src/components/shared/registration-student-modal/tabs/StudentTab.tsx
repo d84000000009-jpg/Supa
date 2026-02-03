@@ -1,4 +1,5 @@
 // src/components/shared/registration-student-modal/tabs/StudentTab.tsx
+// ATUALIZADO: Tipo de matrícula agora é determinado APÓS selecionar curso (no CourseTab)
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,9 +11,6 @@ import {
   GraduationCap,
   Search,
   User,
-  UserPlus,
-  RefreshCw,
-  ArrowRightLeft,
 } from "lucide-react";
 import type {
   RegistrationFormData,
@@ -41,6 +39,9 @@ interface StudentTabProps {
 
   // lista já filtrada
   filteredStudents: StudentDTO[];
+
+  // estudante pré-selecionado (vindo da inscrição)
+  isPreSelected?: boolean;
 }
 
 export function StudentTab({
@@ -55,115 +56,18 @@ export function StudentTab({
   onClearStudent,
   onChangeField,
   filteredStudents,
+  isPreSelected = false,
 }: StudentTabProps) {
   const hasSelected = Boolean(formData.studentId && formData.studentId > 0 && selectedStudent);
 
-  const registrationTypes = [
-    {
-      id: 'new' as const,
-      label: 'Novo Estudante',
-      description: 'Primeira matrícula no curso',
-      icon: UserPlus,
-      color: 'from-green-500 to-emerald-600',
-      bgColor: 'bg-green-50',
-      borderColor: 'border-green-300',
-      textColor: 'text-green-700'
-    },
-    {
-      id: 'renewal' as const,
-      label: 'Renovação',
-      description: 'Estudante já matriculado anteriormente',
-      icon: RefreshCw,
-      color: 'from-blue-500 to-cyan-600',
-      bgColor: 'bg-blue-50',
-      borderColor: 'border-blue-300',
-      textColor: 'text-blue-700'
-    },
-    {
-      id: 'transfer' as const,
-      label: 'Inscrição por Módulo',
-      description: 'Matrícula em módulos específicos',
-      icon: ArrowRightLeft,
-      color: 'from-purple-500 to-violet-600',
-      bgColor: 'bg-purple-50',
-      borderColor: 'border-purple-300',
-      textColor: 'text-purple-700'
-    },
-  ];
-
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-400">
-      {/* Tipo de Inscrição */}
-      <section>
-        <Label className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-4 block">
-          Tipo de Inscrição <span className="text-red-500">*</span>
-        </Label>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {registrationTypes.map((type) => {
-            const Icon = type.icon;
-            const isSelected = formData.registrationType === type.id;
-
-            return (
-              <button
-                key={type.id}
-                type="button"
-                onClick={() => onChangeField('registrationType', type.id)}
-                className={cn(
-                  "relative p-5 rounded-xl border-2 transition-all duration-200 text-left group",
-                  isSelected
-                    ? `${type.borderColor} ${type.bgColor} shadow-lg`
-                    : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-md"
-                )}
-              >
-                {isSelected && (
-                  <div className="absolute -top-2 -right-2">
-                    <div className={`h-6 w-6 bg-gradient-to-br ${type.color} rounded-full flex items-center justify-center shadow-md`}>
-                      <CheckCircle2 className="h-4 w-4 text-white" />
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex items-start gap-3">
-                  <div className={cn(
-                    "h-12 w-12 rounded-lg flex items-center justify-center transition-all",
-                    isSelected
-                      ? `bg-gradient-to-br ${type.color} shadow-md`
-                      : "bg-slate-100 group-hover:bg-slate-200"
-                  )}>
-                    <Icon className={cn(
-                      "h-6 w-6",
-                      isSelected ? "text-white" : "text-slate-600"
-                    )} />
-                  </div>
-
-                  <div className="flex-1">
-                    <h3 className={cn(
-                      "font-bold text-sm mb-1",
-                      isSelected ? type.textColor : "text-slate-800"
-                    )}>
-                      {type.label}
-                    </h3>
-                    <p className={cn(
-                      "text-xs leading-relaxed",
-                      isSelected ? type.textColor : "text-slate-500"
-                    )}>
-                      {type.description}
-                    </p>
-                  </div>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-
-        {formErrors.registrationType && (
-          <p className="text-xs text-red-600 flex items-center gap-1 mt-3">
-            <AlertCircle className="h-3 w-3" />
-            {formErrors.registrationType}
-          </p>
-        )}
-      </section>
+      {/* Header informativo */}
+      <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
+        <p className="text-sm text-blue-700">
+          <strong>Passo 1:</strong> Selecione o estudante que deseja matricular. O tipo de matrícula será determinado automaticamente após escolher o curso.
+        </p>
+      </div>
 
       {/* Estudante Selecionado */}
       {hasSelected ? (
@@ -172,6 +76,7 @@ export function StudentTab({
           studentCode={formData.studentCode || ""}
           onClear={onClearStudent}
           registrationType={formData.registrationType}
+          isPreSelected={isPreSelected}
         />
       ) : (
         <div>
@@ -277,11 +182,13 @@ function SelectedStudentCard({
   studentCode,
   onClear,
   registrationType,
+  isPreSelected = false,
 }: {
   student: StudentDTO;
   studentCode: string;
   onClear: () => void;
   registrationType?: 'new' | 'renewal' | 'transfer';
+  isPreSelected?: boolean;
 }) {
   const getRegistrationTypeBadge = () => {
     if (!registrationType) return null;
@@ -341,14 +248,21 @@ function SelectedStudentCard({
             </div>
           </div>
 
-          {/* Trocar */}
-          <button
-            type="button"
-            onClick={onClear}
-            className="flex-shrink-0 px-4 py-2 bg-white border-2 border-green-300 text-green-700 hover:bg-green-50 hover:border-green-400 rounded-xl text-xs font-semibold transition-all"
-          >
-            Trocar
-          </button>
+          {/* Trocar - esconder se pré-selecionado */}
+          {!isPreSelected && (
+            <button
+              type="button"
+              onClick={onClear}
+              className="flex-shrink-0 px-4 py-2 bg-white border-2 border-green-300 text-green-700 hover:bg-green-50 hover:border-green-400 rounded-xl text-xs font-semibold transition-all"
+            >
+              Trocar
+            </button>
+          )}
+          {isPreSelected && (
+            <div className="flex-shrink-0 px-4 py-2 bg-blue-50 border-2 border-blue-200 text-blue-600 rounded-xl text-xs font-semibold">
+              Da Inscrição
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -1,5 +1,6 @@
 // src/components/shared/registration-student-modal/tabs/CourseTab.tsx
 
+import { useState, useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
@@ -9,6 +10,9 @@ import {
   Calendar,
   Clock,
   GraduationCap,
+  Sun,
+  Sunset,
+  Moon,
 } from "lucide-react";
 import type {
   ClassDTO,
@@ -16,6 +20,7 @@ import type {
   RegistrationDTO,
   RegistrationFormData,
   RegistrationFormErrors,
+  Turno,
 } from "../types/registrationModal.types";
 
 interface CourseTabProps {
@@ -25,11 +30,13 @@ interface CourseTabProps {
 
   // dados
   courses: CourseDTO[];
+  classes?: ClassDTO[]; // todas as turmas (para filtrar por turno)
   filteredClasses: ClassDTO[];
   existingRegistrations: RegistrationDTO[];
 
   // loading
   isLoadingCourses: boolean;
+  isLoadingClasses?: boolean;
 
   // actions
   onSelectCourse: (course: CourseDTO) => void;
@@ -42,18 +49,30 @@ interface CourseTabProps {
   formatCurrency: (value: number) => string;
 }
 
+// Opções de turno
+const TURNO_OPTIONS: { value: Turno; label: string; icon: typeof Sun; color: string }[] = [
+  { value: "manha", label: "Manhã", icon: Sun, color: "from-yellow-400 to-orange-400" },
+  { value: "tarde", label: "Tarde", icon: Sunset, color: "from-orange-400 to-red-400" },
+  { value: "noite", label: "Noite", icon: Moon, color: "from-indigo-500 to-purple-600" },
+];
+
 export function CourseTab({
   formData,
   formErrors,
   courses,
+  classes = [],
   filteredClasses,
   existingRegistrations,
   isLoadingCourses,
+  isLoadingClasses,
   onSelectCourse,
   onSelectClass,
   onChangeField,
   formatCurrency,
 }: CourseTabProps) {
+  // Estado local para turno selecionado
+  const [selectedTurno, setSelectedTurno] = useState<Turno | null>(null);
+
   // ✅ FILTRAR CURSOS - Remover cursos onde estudante já está matriculado
   const availableCourses = courses.filter((course) => {
     // Se não selecionou estudante ou período, mostrar todos
@@ -71,6 +90,28 @@ export function CourseTab({
     // ❌ NÃO mostrar se já matriculado
     return !alreadyEnrolled;
   });
+
+  // Filtrar turmas por curso E turno selecionado
+  const turmasFiltradasPorTurno = useMemo(() => {
+    if (!formData.courseId) return [];
+
+    let turmasDoCurso = classes.filter((c) => c.curso === formData.courseId || (c as any).curso_id === formData.courseId);
+
+    // Se turno selecionado, filtrar por turno
+    if (selectedTurno) {
+      turmasDoCurso = turmasDoCurso.filter((c) => c.turno === selectedTurno);
+    }
+
+    return turmasDoCurso;
+  }, [classes, formData.courseId, selectedTurno]);
+
+  // Handler para selecionar turno
+  const handleSelectTurno = (turno: Turno) => {
+    setSelectedTurno(turno);
+    // Limpar turma selecionada ao mudar turno
+    onChangeField("classId", undefined);
+    onChangeField("className", "");
+  };
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-400">
@@ -146,52 +187,98 @@ export function CourseTab({
         )}
       </section>
 
-      {/* Turma (Opcional) */}
+      {/* Turno e Turma */}
       {formData.courseId ? (
-        <section>
-          <Label className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-4 block">
-            Turma <span className="text-slate-400">(Opcional)</span>
-          </Label>
+        <>
+          {/* Seleção de Turno */}
+          <section>
+            <Label className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-4 block">
+              Selecionar Turno <span className="text-red-500">*</span>
+            </Label>
 
-          {filteredClasses.length > 0 ? (
-            <div className="grid grid-cols-1 gap-2">
-              {filteredClasses.map((classItem) => (
-                <button
-                  key={classItem.id}
-                  onClick={() => onSelectClass(classItem)}
-                  type="button"
-                  className={cn(
-                    "flex items-center p-3 rounded-xl border-2 transition-all text-left",
-                    formData.classId === classItem.id
-                      ? "border-blue-500 bg-blue-50"
-                      : "border-slate-200 bg-white hover:border-blue-300"
-                  )}
-                >
-                  <GraduationCap
+            <div className="grid grid-cols-3 gap-3">
+              {TURNO_OPTIONS.map((turno) => {
+                const Icon = turno.icon;
+                return (
+                  <button
+                    key={turno.value}
+                    onClick={() => handleSelectTurno(turno.value)}
+                    type="button"
                     className={cn(
-                      "h-5 w-5 mr-3",
-                      formData.classId === classItem.id
-                        ? "text-blue-600"
-                        : "text-slate-400"
+                      "flex flex-col items-center justify-center p-4 rounded-2xl border-2 transition-all",
+                      selectedTurno === turno.value
+                        ? "border-[#004B87] bg-gradient-to-br " + turno.color + " text-white shadow-lg"
+                        : "border-slate-200 bg-white hover:border-[#004B87]/50 text-slate-600"
                     )}
-                  />
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold text-slate-700">
-                      {classItem.nome}
-                    </p>
-                    <p className="text-xs text-slate-500">
-                      {classItem.codigo} • {classItem.dias_semana}
-                    </p>
-                  </div>
-                </button>
-              ))}
+                  >
+                    <Icon className={cn(
+                      "h-8 w-8 mb-2",
+                      selectedTurno === turno.value ? "text-white" : "text-slate-400"
+                    )} />
+                    <span className="text-sm font-bold">{turno.label}</span>
+                  </button>
+                );
+              })}
             </div>
-          ) : (
-            <p className="text-sm text-slate-500 text-center py-6 bg-slate-50 rounded-xl">
-              Nenhuma turma disponível para este curso
-            </p>
+          </section>
+
+          {/* Turma (aparece após selecionar turno) */}
+          {selectedTurno && (
+            <section>
+              <Label className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-4 block">
+                Turma <span className="text-slate-400">(Opcional)</span>
+              </Label>
+
+              {isLoadingClasses ? (
+                <div className="text-center py-8">
+                  <p className="text-slate-500">Carregando turmas...</p>
+                </div>
+              ) : turmasFiltradasPorTurno.length > 0 ? (
+                <div className="grid grid-cols-1 gap-2">
+                  {turmasFiltradasPorTurno.map((classItem) => (
+                    <button
+                      key={classItem.id}
+                      onClick={() => onSelectClass(classItem)}
+                      type="button"
+                      className={cn(
+                        "flex items-center p-3 rounded-xl border-2 transition-all text-left",
+                        formData.classId === classItem.id
+                          ? "border-blue-500 bg-blue-50"
+                          : "border-slate-200 bg-white hover:border-blue-300"
+                      )}
+                    >
+                      <GraduationCap
+                        className={cn(
+                          "h-5 w-5 mr-3",
+                          formData.classId === classItem.id
+                            ? "text-blue-600"
+                            : "text-slate-400"
+                        )}
+                      />
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-slate-700">
+                          {classItem.nome}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          {classItem.codigo} • {classItem.dias_semana}
+                        </p>
+                      </div>
+                      {classItem.turno && (
+                        <span className="text-xs bg-slate-100 px-2 py-1 rounded-full text-slate-600 capitalize">
+                          {classItem.turno}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-slate-500 text-center py-6 bg-slate-50 rounded-xl">
+                  Nenhuma turma disponível para o turno {selectedTurno === 'manha' ? 'da manhã' : selectedTurno === 'tarde' ? 'da tarde' : 'da noite'}
+                </p>
+              )}
+            </section>
           )}
-        </section>
+        </>
       ) : null}
 
       {/* Período e Data */}

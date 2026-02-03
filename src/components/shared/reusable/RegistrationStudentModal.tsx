@@ -8,11 +8,12 @@ import {
   ChevronRight,
   DollarSign,
   FileText,
-  Shield,
   Sparkles,
   User,
   Printer,
   MessageCircle,
+  CheckCircle2,
+  ClipboardCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -26,13 +27,13 @@ import classService from "@/services/classService";
 import { StudentTab } from "../registration-student-modal/tabs/StudentTab";
 import { CourseTab } from "../registration-student-modal/tabs/CourseTab";
 import { PaymentTab } from "../registration-student-modal/tabs/PaymentTab";
-import { CredentialsTab } from "../registration-student-modal/tabs/CredentialsTab";
+import { ConfirmationTab } from "../registration-student-modal/tabs/ConfirmationTab";
+// Removido: CredentialsTab - credenciais são geradas na INSCRIÇÃO, não na matrícula
 
 import { generateCurrentPeriod } from "../registration-student-modal/utils/generateCurrentPeriod";
 import { formatCurrency } from "../registration-student-modal/utils/formatCurrency";
 import { generateStudentCode } from "../registration-student-modal/utils/generateStudentCode";
-import { generateUsername } from "../registration-student-modal/utils/generateUsername";
-import { generatePassword } from "../registration-student-modal/utils/generatePassword";
+// Removido: generateUsername e generatePassword - credenciais são geradas na INSCRIÇÃO
 
 import type {
   RegistrationModalTab,
@@ -50,8 +51,10 @@ interface RegistrationStudentModalProps {
   isEditing?: boolean;
   onSave: (registrationData: Partial<Registration>) => void;
   existingRegistrations?: Registration[];
+  preSelectedStudentId?: number | null;
 }
 
+// Removido: credentials tab - credenciais são geradas na INSCRIÇÃO, não na matrícula
 const TABS: Array<{
   id: RegistrationModalTab;
   label: string;
@@ -60,10 +63,11 @@ const TABS: Array<{
 }> = [
   { id: "student", label: "Estudante", desc: "Selecionar Aluno", icon: User },
   { id: "course", label: "Curso e Turma", desc: "Escolher Curso", icon: BookOpen },
-  { id: "payment", label: "Pagamento", desc: "Valores e Status", icon: DollarSign },
-  { id: "credentials", label: "Dados de Acesso", desc: "Credenciais do Sistema", icon: Shield },
+  { id: "payment", label: "Valores", desc: "Taxas e Mensalidade", icon: DollarSign },
+  { id: "confirmation", label: "Confirmação", desc: "Resumo e Pagamento", icon: ClipboardCheck },
 ];
 
+// Removido: username e password - credenciais são geradas na INSCRIÇÃO, não na matrícula
 const buildInitialFormData = (): RegistrationFormData => ({
   studentId: 0,
   studentName: "",
@@ -74,14 +78,17 @@ const buildInitialFormData = (): RegistrationFormData => ({
   className: "",
   period: generateCurrentPeriod(),
   enrollmentDate: new Date().toISOString().split("T")[0],
-  status: "active",
+  status: "pending", // ✅ Pendente até pagar taxa obrigatória
   paymentStatus: "pending",
   enrollmentFee: 5000,
   monthlyFee: 2500,
   observations: "",
-  username: "",
-  password: "",
   registrationType: "new",
+  // Campos de pagamento (ConfirmationTab)
+  paidAmount: 0,
+  paymentMethod: "cash",
+  paymentReference: "",
+  includeFirstMonth: false,
 });
 
 export function RegistrationStudentModal({
@@ -91,6 +98,7 @@ export function RegistrationStudentModal({
   isEditing = false,
   onSave,
   existingRegistrations = [],
+  preSelectedStudentId,
 }: RegistrationStudentModalProps) {
   const [activeTab, setActiveTab] = useState<RegistrationModalTab>("student");
 
@@ -103,7 +111,6 @@ export function RegistrationStudentModal({
   const [isLoadingClasses, setIsLoadingClasses] = useState(false);
 
   const [studentSearch, setStudentSearch] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [showChatPrompt, setShowChatPrompt] = useState(false);
   const [showReceiptPrompt, setShowReceiptPrompt] = useState(false);
 
@@ -196,7 +203,6 @@ export function RegistrationStudentModal({
 
     setActiveTab("student");
     setStudentSearch("");
-    setShowPassword(false);
     setFormErrors({});
 
     if (registrationData && isEditing) {
@@ -204,9 +210,31 @@ export function RegistrationStudentModal({
       // aqui estamos assumindo que registrationData já vem no formato esperado do formulário.
       setFormData(registrationData as any);
     } else {
-      setFormData(buildInitialFormData());
+      // Se veio da inscrição, pré-selecionar "new" como tipo
+      const initialData = buildInitialFormData();
+      if (preSelectedStudentId) {
+        initialData.registrationType = "new"; // Novo Estudante - Primeira Matrícula
+      }
+      setFormData(initialData);
     }
-  }, [isOpen, registrationData, isEditing]);
+  }, [isOpen, registrationData, isEditing, preSelectedStudentId]);
+
+  // -----------------------------
+  // Pré-selecionar estudante quando vem da inscrição
+  // -----------------------------
+  useEffect(() => {
+    if (!isOpen || !preSelectedStudentId || students.length === 0) return;
+
+    // Encontrar o estudante pré-selecionado
+    const student = students.find(s => s.id === preSelectedStudentId);
+    if (student) {
+      // Pré-selecionar o estudante automaticamente
+      onChangeField("studentId", student.id);
+      onChangeField("studentName", student.name || "");
+      onChangeField("studentCode", student.enrollment_number || `MAT${student.id}`);
+      onChangeField("registrationType", "new"); // Primeira matrícula
+    }
+  }, [isOpen, preSelectedStudentId, students]);
 
   // -----------------------------
   // Select handlers
@@ -215,10 +243,6 @@ export function RegistrationStudentModal({
     onChangeField("studentId", student.id);
     onChangeField("studentName", student.name || "");
     onChangeField("studentCode", student.enrollment_number || `MAT${student.id}`);
-
-    // reset creds para regenerar
-    onChangeField("username", "");
-    onChangeField("password", "");
     setStudentSearch("");
   };
 
@@ -226,8 +250,6 @@ export function RegistrationStudentModal({
     onChangeField("studentId", 0);
     onChangeField("studentName", "");
     onChangeField("studentCode", "");
-    onChangeField("username", "");
-    onChangeField("password", "");
   };
 
   const handleSelectCourse = (course: Course) => {
@@ -248,7 +270,8 @@ export function RegistrationStudentModal({
   };
 
   // -----------------------------
-  // Auto generate code + credentials when student+course are set
+  // Auto generate student code when student+course are set
+  // (Credenciais são geradas na INSCRIÇÃO, não na matrícula)
   // -----------------------------
   useEffect(() => {
     const run = async () => {
@@ -261,11 +284,9 @@ export function RegistrationStudentModal({
         setFormData((prev) => ({
           ...prev,
           studentCode: code,
-          username: generateUsername(prev.studentName),
-          password: generatePassword(),
         }));
       } catch (e) {
-        console.error("Falha ao gerar credenciais:", e);
+        console.error("Falha ao gerar código:", e);
       }
     };
 
@@ -275,6 +296,7 @@ export function RegistrationStudentModal({
 
   // -----------------------------
   // Validation
+  // (Removida validação de username/password - credenciais são geradas na INSCRIÇÃO)
   // -----------------------------
   const validateForm = (): boolean => {
     const errors: RegistrationFormErrors = {};
@@ -282,8 +304,6 @@ export function RegistrationStudentModal({
     if (!formData.registrationType) errors.registrationType = "Selecione o tipo de inscrição";
     if (!formData.studentId || formData.studentId === 0) errors.studentId = "Selecione um estudante";
     if (!formData.courseId) errors.courseId = "Selecione um curso";
-    if (!formData.username?.trim()) errors.username = "Usuário é obrigatório";
-    if (!formData.password?.trim()) errors.password = "Senha é obrigatória";
     if (!formData.period) errors.period = "Período é obrigatório";
     if (!formData.enrollmentDate) errors.enrollmentDate = "Data de matrícula é obrigatória";
 
@@ -291,35 +311,68 @@ export function RegistrationStudentModal({
     return Object.keys(errors).length === 0;
   };
 
-  const validateAndNext = () => {
-    if (activeTab === "student") {
-      if (!formData.registrationType) {
-        toast.error("Selecione o tipo de inscrição primeiro");
-        return;
-      }
-      if (!formData.studentId || formData.studentId === 0) {
-        toast.error("Selecione um estudante primeiro");
-        return;
+  // Validação por tab - retorna mensagem de erro ou null se válido
+  const validateTab = (tabId: RegistrationModalTab): string | null => {
+    switch (tabId) {
+      case "student":
+        if (!formData.registrationType) return "Selecione o tipo de inscrição primeiro";
+        if (!formData.studentId || formData.studentId === 0) return "Selecione um estudante primeiro";
+        return null;
+      case "course":
+        if (!formData.courseId) return "Selecione um curso primeiro";
+        return null;
+      case "payment":
+        if (!formData.enrollmentFee || Number(formData.enrollmentFee) <= 0) return "Defina a taxa de matrícula";
+        if (!formData.monthlyFee || Number(formData.monthlyFee) <= 0) return "Defina a mensalidade";
+        return null;
+      case "confirmation":
+        return null;
+      default:
+        return null;
+    }
+  };
+
+  // Verifica se pode navegar para um tab específico
+  const canNavigateToTab = (targetTab: RegistrationModalTab): { allowed: boolean; error?: string } => {
+    const tabOrder: RegistrationModalTab[] = ["student", "course", "payment", "confirmation"];
+    const currentIndex = tabOrder.indexOf(activeTab);
+    const targetIndex = tabOrder.indexOf(targetTab);
+
+    // Sempre pode voltar para tabs anteriores ou ficar no mesmo
+    if (targetIndex <= currentIndex) {
+      return { allowed: true };
+    }
+
+    // Para avançar, precisa validar todos os tabs anteriores ao destino
+    for (let i = 0; i < targetIndex; i++) {
+      const error = validateTab(tabOrder[i]);
+      if (error) {
+        return { allowed: false, error };
       }
     }
 
-    if (activeTab === "course" && !formData.courseId) {
-      toast.error("Selecione um curso primeiro");
+    return { allowed: true };
+  };
+
+  // Handler para clique no sidebar
+  const handleTabClick = (tabId: RegistrationModalTab) => {
+    const { allowed, error } = canNavigateToTab(tabId);
+    if (allowed) {
+      setActiveTab(tabId);
+    } else if (error) {
+      toast.error(error);
+    }
+  };
+
+  const validateAndNext = () => {
+    const error = validateTab(activeTab);
+    if (error) {
+      toast.error(error);
       return;
     }
 
-    if (activeTab === "payment") {
-      if (!formData.enrollmentFee || Number(formData.enrollmentFee) <= 0) {
-        toast.error("Defina a taxa de matrícula");
-        return;
-      }
-      if (!formData.monthlyFee || Number(formData.monthlyFee) <= 0) {
-        toast.error("Defina a mensalidade");
-        return;
-      }
-    }
-
-    const order: RegistrationModalTab[] = ["student", "course", "payment", "credentials"];
+    // Ordem dos tabs incluindo confirmation
+    const order: RegistrationModalTab[] = ["student", "course", "payment", "confirmation"];
     const nextIndex = order.indexOf(activeTab) + 1;
     if (nextIndex < order.length) setActiveTab(order[nextIndex]);
   };
@@ -327,14 +380,16 @@ export function RegistrationStudentModal({
   // -----------------------------
   // Save
   // -----------------------------
-  const handleSave = () => {
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSave = async () => {
     if (!validateForm()) {
       toast.error("Preencha todos os campos obrigatórios");
       setActiveTab("student");
       return;
     }
 
-    // ✅ MANTER ESTE MAPEAMENTO (não remover!)
+    // ✅ Mapeamento para API (sem username/password - credenciais são geradas na INSCRIÇÃO)
     const mappedData = {
       student_id: formData.studentId,
       course_id: formData.courseId,
@@ -346,20 +401,30 @@ export function RegistrationStudentModal({
       payment_status: formData.paymentStatus,
       enrollment_fee: formData.enrollmentFee,
       monthly_fee: formData.monthlyFee,
-      username: formData.username,
-      password: formData.password,
       observations: formData.observations,
       registration_type: formData.registrationType,
+      // Campos de pagamento (ConfirmationTab)
+      paid_amount: formData.paidAmount || 0,
+      payment_method: formData.paymentMethod || 'cash',
+      payment_reference: formData.paymentReference || '',
+      include_first_month: formData.includeFirstMonth || false,
     };
 
     console.log("📋 FormData ANTES do mapeamento:", formData);
     console.log("📤 Dados DEPOIS do mapeamento:", mappedData);
 
-    onSave(mappedData as any);
-    toast.success(isEditing ? "Matrícula atualizada!" : "Matrícula realizada com sucesso!");
-
-    // Mostrar prompt de recibo após salvar
-    setShowReceiptPrompt(true);
+    setIsSaving(true);
+    try {
+      await onSave(mappedData as any);
+      toast.success(isEditing ? "Matrícula atualizada!" : "Matrícula realizada com sucesso!");
+      // Mostrar prompt de recibo após salvar com sucesso
+      setShowReceiptPrompt(true);
+    } catch (error: any) {
+      console.error("Erro ao salvar matrícula:", error);
+      toast.error(error.message || "Erro ao salvar matrícula");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handlePrintReceipt = () => {
@@ -392,7 +457,7 @@ export function RegistrationStudentModal({
           <h2>Dados do Estudante</h2>
           <div class="info-row"><span><strong>Nome:</strong></span><span>${formData.studentName}</span></div>
           <div class="info-row"><span><strong>Código:</strong></span><span>${formData.studentCode}</span></div>
-          <div class="info-row"><span><strong>Email:</strong></span><span>${formData.username}</span></div>
+          <div class="info-row"><span><strong>Email:</strong></span><span>${selectedStudent?.email || '-'}</span></div>
         </div>
 
         <div class="section">
@@ -454,7 +519,7 @@ export function RegistrationStudentModal({
               {TABS.map((tab) => (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => handleTabClick(tab.id)}
                   className={cn(
                     "w-full flex items-start gap-4 p-4 rounded-2xl transition-all duration-300 text-left group",
                     activeTab === tab.id
@@ -518,6 +583,7 @@ export function RegistrationStudentModal({
                   onSelectStudent={handleSelectStudent}
                   onClearStudent={handleClearStudent}
                   onChangeField={onChangeField}
+                  isPreSelected={Boolean(preSelectedStudentId)}
                 />
               )}
 
@@ -547,16 +613,16 @@ export function RegistrationStudentModal({
                 />
               )}
 
-              {activeTab === "credentials" && (
-                <CredentialsTab
+              {activeTab === "confirmation" && (
+                <ConfirmationTab
                   formData={formData}
-                  formErrors={formErrors}
-                  showPassword={showPassword}
-                  onToggleShowPassword={() => setShowPassword((v) => !v)}
                   onChangeField={onChangeField}
                   formatCurrency={formatCurrency}
+                  selectedStudent={selectedStudent}
+                  selectedCourse={selectedCourse}
                 />
               )}
+              {/* Removido: CredentialsTab - credenciais são geradas na INSCRIÇÃO */}
             </div>
 
             {/* FOOTER */}
@@ -570,19 +636,30 @@ export function RegistrationStudentModal({
               </Button>
 
               <div className="flex gap-3">
-                {activeTab !== "credentials" ? (
-                 <Button
-  onClick={validateAndNext}
-  className="bg-[#F5821F] text-white hover:bg-[#E07318] px-8 h-12 rounded-xl flex gap-2 font-bold transition-all active:scale-95 shadow-lg shadow-orange-200"
->
-  Próximo Passo <ChevronRight className="h-4 w-4" />
-</Button>
+                {activeTab !== "confirmation" ? (
+                  <Button
+                    onClick={validateAndNext}
+                    className="bg-[#F5821F] text-white hover:bg-[#E07318] px-8 h-12 rounded-xl flex gap-2 font-bold transition-all active:scale-95 shadow-lg shadow-orange-200"
+                  >
+                    Próximo Passo <ChevronRight className="h-4 w-4" />
+                  </Button>
                 ) : (
                   <Button
                     onClick={handleSave}
-                    className="bg-[#F5821F] text-white hover:bg-[#E07318] px-10 h-12 rounded-xl flex gap-2 font-bold transition-all active:scale-95 shadow-xl shadow-orange-500/30"
+                    disabled={isSaving}
+                    className="bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700 px-10 h-12 rounded-xl flex gap-2 font-bold transition-all active:scale-95 shadow-xl shadow-green-500/30 disabled:opacity-70"
                   >
-                    {isEditing ? "Atualizar Matrícula" : "Matricular Estudante"}
+                    {isSaving ? (
+                      <>
+                        <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        Salvando...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="h-4 w-4" />
+                        {isEditing ? "Atualizar Matrícula" : "Confirmar Matrícula"}
+                      </>
+                    )}
                   </Button>
                 )}
               </div>
@@ -597,42 +674,65 @@ export function RegistrationStudentModal({
               <MessageCircle className="h-6 w-6" />
             </button>
 
-            {/* RECEIPT PROMPT MODAL */}
+            {/* RECEIPT PROMPT MODAL - SUCESSO DA MATRÍCULA */}
             {showReceiptPrompt && (
               <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-                <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
-                  <div className="text-center mb-6">
-                    <div className="h-16 w-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <Printer className="h-8 w-8 text-green-600" />
+                <div className="bg-white rounded-3xl shadow-2xl overflow-hidden max-w-lg w-full">
+                  {/* Header verde de sucesso */}
+                  <div className="bg-gradient-to-r from-green-500 to-emerald-600 px-8 py-6 text-white text-center">
+                    <div className="h-16 w-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <CheckCircle2 className="h-10 w-10 text-white" />
                     </div>
-                    <h3 className="text-2xl font-bold text-[#004B87] mb-2">Matrícula Concluída!</h3>
-                    <p className="text-slate-600">
-                      Deseja imprimir o recibo de matrícula?
-                    </p>
+                    <h3 className="text-2xl font-bold mb-1">Matrícula Concluída!</h3>
+                    <p className="text-green-100 text-sm">O estudante foi matriculado com sucesso</p>
                   </div>
 
-                  <div className="flex gap-3">
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setShowReceiptPrompt(false);
-                        onClose();
-                      }}
-                      className="flex-1"
-                    >
-                      Não, Obrigado
-                    </Button>
-                    <Button
-                      onClick={() => {
-                        handlePrintReceipt();
-                        setShowReceiptPrompt(false);
-                        onClose();
-                      }}
-                      className="flex-1 bg-gradient-to-r from-[#F5821F] to-[#FF9933] hover:from-[#E07318] hover:to-[#F58820] text-white"
-                    >
-                      <Printer className="h-4 w-4 mr-2" />
-                      Sim, Imprimir
-                    </Button>
+                  {/* Conteúdo */}
+                  <div className="px-8 py-6">
+                    {/* Resumo do estudante */}
+                    <div className="bg-slate-50 rounded-xl p-4 mb-6">
+                      <div className="flex items-center gap-4">
+                        <div className="h-14 w-14 bg-gradient-to-br from-[#004B87] to-[#0066B3] rounded-xl flex items-center justify-center text-white font-bold text-xl">
+                          {formData.studentName?.charAt(0)?.toUpperCase() || 'E'}
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-slate-800">{formData.studentName}</h4>
+                          <p className="text-sm text-slate-500">{formData.courseName}</p>
+                          <p className="text-xs text-[#F5821F] font-mono">{formData.studentCode}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <p className="text-slate-600 text-center mb-6">
+                      Deseja imprimir o recibo de matrícula agora?
+                    </p>
+
+                    {/* Botões */}
+                    <div className="flex gap-3">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          // Auto-print quando fechar sem clicar em imprimir
+                          handlePrintReceipt();
+                          setShowReceiptPrompt(false);
+                          onClose();
+                        }}
+                        className="flex-1 h-12 border-2"
+                      >
+                        Concluído
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          handlePrintReceipt();
+                          setShowReceiptPrompt(false);
+                          onClose();
+                        }}
+                        className="flex-1 h-12 bg-gradient-to-r from-[#F5821F] to-[#FF9933] hover:from-[#E07318] hover:to-[#F58820] text-white font-bold"
+                      >
+                        <Printer className="h-4 w-4 mr-2" />
+                        Imprimir Recibo
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </div>

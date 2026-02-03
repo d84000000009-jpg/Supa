@@ -7,8 +7,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Users, Plus, Edit, Lock, Unlock, Search, Mail, Phone, Calendar } from "lucide-react";
+import { Users, Plus, Edit, Lock, Unlock, Search, Mail, Phone, Calendar, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { StudentProfileModal } from "./Students/StudentProfileModal";
+
 
 interface Student {
   id: string;
@@ -65,6 +67,14 @@ export function GerenciarEstudantes() {
     class: "",
     status: "ativo",
   });
+
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+
+const handleOpenProfile = (student: Student) => {
+  setSelectedStudent(student);
+  setIsProfileOpen(true);
+};
 
   const filteredStudents = students.filter((student) =>
     student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
